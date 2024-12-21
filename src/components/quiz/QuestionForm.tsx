@@ -11,7 +11,7 @@ import { Loader2, Upload } from "lucide-react";
 interface QuestionFormProps {
   quizId: string;
   onQuestionCreated?: () => void;
-  onClose?: () => void;  // Added this prop
+  onClose?: () => void;
 }
 
 const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
@@ -49,22 +49,18 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         .from('question_images')
         .getPublicUrl(filePath);
 
-      // Generate question using the Edge Function
-      const response = await fetch('/api/generate-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: publicUrl })
+      // Call the Edge Function to generate question
+      const { data, error } = await supabase.functions.invoke('generate-question', {
+        body: { imageUrl: publicUrl }
       });
 
-      if (!response.ok) throw new Error('Failed to generate question');
-
-      const questionData = await response.json();
+      if (error) throw error;
 
       // Update form with generated data
-      setQuestionText(questionData.questionText);
-      setReferenceText(questionData.referenceText);
-      setSolutionText(questionData.solutionText);
-      setOptions(questionData.options.map((opt: any) => ({
+      setQuestionText(data.questionText);
+      setReferenceText(data.referenceText);
+      setSolutionText(data.solutionText);
+      setOptions(data.options.map((opt: any) => ({
         option_text: opt.text,
         is_correct: opt.isCorrect
       })));
