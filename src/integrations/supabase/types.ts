@@ -217,7 +217,9 @@ export type Database = {
           quiz_id: string
           score: number | null
           started_at: string
+          user_email: string | null
           user_id: string
+          user_name: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -226,7 +228,9 @@ export type Database = {
           quiz_id: string
           score?: number | null
           started_at?: string
+          user_email?: string | null
           user_id: string
+          user_name?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -235,7 +239,9 @@ export type Database = {
           quiz_id?: string
           score?: number | null
           started_at?: string
+          user_email?: string | null
           user_id?: string
+          user_name?: string | null
         }
         Relationships: [
           {
