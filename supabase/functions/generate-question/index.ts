@@ -21,6 +21,8 @@ serve(async (req) => {
       )
     }
 
+    console.log('Calling OpenAI API with image URL:', imageUrl)
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -48,8 +50,28 @@ serve(async (req) => {
       })
     })
 
+    console.log('OpenAI API response status:', response.status)
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error('OpenAI API error:', errorData)
+      throw new Error(`OpenAI API error: ${errorData}`)
+    }
+
     const data = await response.json()
+    console.log('OpenAI API response data:', data)
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid response format from OpenAI API')
+    }
+
     const questionData = JSON.parse(data.choices[0].message.content)
+    console.log('Parsed question data:', questionData)
+
+    // Validate the question data structure
+    if (!questionData.questionText || !Array.isArray(questionData.options)) {
+      throw new Error('Invalid question data format')
+    }
 
     return new Response(
       JSON.stringify(questionData),
@@ -58,7 +80,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in generate-question function:', error)
     return new Response(
-      JSON.stringify({ error: 'Failed to generate question', details: error.message }),
+      JSON.stringify({ 
+        error: 'Failed to generate question', 
+        details: error.message,
+        stack: error.stack 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
