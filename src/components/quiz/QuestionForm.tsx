@@ -11,9 +11,10 @@ import { Loader2, Upload } from "lucide-react";
 interface QuestionFormProps {
   quizId: string;
   onQuestionCreated?: () => void;
+  onClose?: () => void;  // Added this prop
 }
 
-const QuestionForm = ({ quizId, onQuestionCreated }: QuestionFormProps) => {
+const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [referenceText, setReferenceText] = useState("");
@@ -131,6 +132,7 @@ const QuestionForm = ({ quizId, onQuestionCreated }: QuestionFormProps) => {
       ]);
 
       onQuestionCreated?.();
+      onClose?.();  // Call onClose after successful submission
     } catch (error) {
       console.error("Error creating question:", error);
       toast({
@@ -224,16 +226,23 @@ const QuestionForm = ({ quizId, onQuestionCreated }: QuestionFormProps) => {
           ))}
         </div>
 
-        <Button type="submit" disabled={isLoading} className="w-full">
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating...
-            </>
-          ) : (
-            "Create Question"
+        <div className="flex gap-2">
+          <Button type="submit" disabled={isLoading} className="flex-1">
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Question"
+            )}
+          </Button>
+          {onClose && (
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
           )}
-        </Button>
+        </div>
       </form>
     </Card>
   );
