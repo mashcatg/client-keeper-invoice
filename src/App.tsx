@@ -10,6 +10,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
+import QuizConfig from "./pages/QuizConfig";
+import QuizQuestions from "./pages/QuizQuestions";
+import QuizResponses from "./pages/QuizResponses";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -31,6 +34,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quiz/:id/config"
+              element={
+                <ProtectedRoute>
+                  <QuizConfig />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quiz/:id/questions"
+              element={
+                <ProtectedRoute>
+                  <QuizQuestions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quiz/:id/responses"
+              element={
+                <ProtectedRoute>
+                  <QuizResponses />
                 </ProtectedRoute>
               }
             />

@@ -1,0 +1,165 @@
+import { useState } from "react";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Card } from "@/components/ui/card";
+import { Edit2, Trash2 } from "lucide-react";
+
+interface Option {
+  id: string;
+  option_text: string;
+  is_correct: boolean;
+}
+
+interface Question {
+  id: string;
+  question_text: string;
+  reference_text: string | null;
+  solution_text: string | null;
+  stamp: string | null;
+  options: Option[];
+}
+
+interface QuestionListProps {
+  questions: Question[];
+}
+
+const QuestionList = ({ questions }: QuestionListProps) => {
+  const supabase = useSupabaseClient();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
+
+  const handleDelete = async (questionId: string) => {
+    const { error } = await supabase
+      .from("questions")
+      .delete()
+      .eq("id", questionId);
+
+    if (error) {
+      toast({
+        title: "Failed to delete question",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["questions"] });
+    toast({
+      title: "Question deleted successfully",
+    });
+  };
+
+  if (questions.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        No questions added yet. Start by adding your first question!
+      </div>
+    );
+  }
+
+  // Group questions by stamp
+  const groupedQuestions = questions.reduce((acc, question) => {
+    const stamp = question.stamp || "Ungrouped";
+    if (!acc[stamp]) {
+      acc[stamp] = [];
+    }
+    acc[stamp].push(question);
+    return acc;
+  }, {} as Record<string, Question[]>);
+
+  return (
+    <div className="space-y-6">
+      {Object.entries(groupedQuestions).map(([stamp, questions]) => (
+        <div key={stamp} className="space-y-4">
+          <h3 className="text-lg font-semibold">{stamp}</h3>
+          <div className="space-y-4">
+            {questions.map((question) => (
+              <Card key={question.id} className="p-4">
+                <Accordion
+                  type="single"
+                  value={expandedQuestion || ""}
+                  onValueChange={setExpandedQuestion}
+                >
+                  <AccordionItem value={question.id}>
+                    <AccordionTrigger>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-left">{question.question_text}</span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(question.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 pt-4">
+                        {question.reference_text && (
+                          <div>
+                            <h4 className="font-semibold">Reference:</h4>
+                            <p className="text-gray-600">
+                              {question.reference_text}
+                            </p>
+                          </div>
+                        )}
+
+                        <div>
+                          <h4 className="font-semibold mb-2">Options:</h4>
+                          <div className="space-y-2">
+                            {question.options.map((option, index) => (
+                              <div
+                                key={option.id}
+                                className={`p-2 rounded ${
+                                  option.is_correct
+                                    ? "bg-green-50 border border-green-200"
+                                    : "bg-gray-50 border border-gray-200"
+                                }`}
+                              >
+                                {option.option_text}
+                                {option.is_correct && (
+                                  <span className="text-green-600 text-sm ml-2">
+                                    (Correct)
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {question.solution_text && (
+                          <div>
+                            
+                            <h4 className="font-semibold">Solution:</h4>
+                            <p className="text-gray-600">
+                              {question.solution_text}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default QuestionList;
