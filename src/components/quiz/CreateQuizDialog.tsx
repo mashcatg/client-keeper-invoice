@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSupabaseClient, useSession } from "@supabase/auth-helpers-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
@@ -17,16 +18,22 @@ const CreateQuizDialog = () => {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const supabase = useSupabaseClient();
+  const session = useSession();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !session?.user?.id) return;
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.from("quizzes").insert([{ title }]);
+      const { error } = await supabase.from("quizzes").insert([
+        { 
+          title,
+          user_id: session.user.id 
+        }
+      ]);
       
       if (error) throw error;
       
@@ -38,6 +45,7 @@ const CreateQuizDialog = () => {
       setOpen(false);
       setTitle("");
     } catch (error) {
+      console.error("Error creating quiz:", error);
       toast({
         title: "Failed to create quiz",
         variant: "destructive",
@@ -55,6 +63,9 @@ const CreateQuizDialog = () => {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Quiz</DialogTitle>
+          <DialogDescription>
+            Enter a title for your new quiz. You can configure other settings after creation.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
