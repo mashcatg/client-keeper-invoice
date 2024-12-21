@@ -1,128 +1,188 @@
 import { useState } from "react";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { X, Plus, Minus } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 
 interface QuestionFormProps {
   quizId: string;
-  onClose: () => void;
+  onQuestionCreated?: () => void;
 }
 
-const QuestionForm = ({ quizId, onClose }: QuestionFormProps) => {
+const QuestionForm = ({ quizId, onQuestionCreated }: QuestionFormProps) => {
+  const [isLoading, setIsLoading] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [solutionText, setSolutionText] = useState("");
   const [options, setOptions] = useState([
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
+    { option_text: "", is_correct: false },
+    { option_text: "", is_correct: false },
+    { option_text: "", is_correct: false },
+    { option_text: "", is_correct: false },
   ]);
-  const [stamp, setStamp] = useState("");
-
   const supabase = useSupabaseClient();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const createQuestionMutation = useMutation({
-    mutationFn: async () => {
-      // First create the question
-      const { data: question, error: questionError } = await supabase
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    try {
+      // Upload image to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${crypto.randomUUID()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('question_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL for the uploaded image
+      const { data: { publicUrl } } = supabase.storage
+        .from('question_images')
+        .getPublicUrl(filePath);
+
+      // Generate question using the Edge Function
+      const response = await fetch('/api/generate-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: publicUrl })
+      });
+
+      if (!response.ok) throw new Error('Failed to generate question');
+
+      const questionData = await response.json();
+
+      // Update form with generated data
+      setQuestionText(questionData.questionText);
+      setReferenceText(questionData.referenceText);
+      setSolutionText(questionData.solutionText);
+      setOptions(questionData.options.map((opt: any) => ({
+        option_text: opt.text,
+        is_correct: opt.isCorrect
+      })));
+
+      toast({
+        title: "Question generated successfully",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Failed to generate question",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!questionText.trim()) return;
+
+    setIsLoading(true);
+    try {
+      // Insert question
+      const { data: questionData, error: questionError } = await supabase
         .from("questions")
-        .insert({
-          quiz_id: quizId,
-          question_text: questionText,
-          reference_text: referenceText,
-          solution_text: solutionText,
-          stamp,
-        })
+        .insert([
+          {
+            quiz_id: quizId,
+            question_text: questionText,
+            reference_text: referenceText,
+            solution_text: solutionText,
+          },
+        ])
         .select()
         .single();
 
       if (questionError) throw questionError;
 
-      // Then create all options
-      const { error: optionsError } = await supabase
-        .from("options")
-        .insert(
-          options.map((option) => ({
-            question_id: question.id,
-            option_text: option.text,
-            is_correct: option.isCorrect,
-          }))
-        );
+      // Insert options
+      const { error: optionsError } = await supabase.from("options").insert(
+        options.map((option) => ({
+          question_id: questionData.id,
+          option_text: option.option_text,
+          is_correct: option.is_correct,
+        }))
+      );
 
       if (optionsError) throw optionsError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["questions", quizId] });
+
       toast({
         title: "Question created successfully",
       });
-      onClose();
-    },
-    onError: () => {
+
+      // Reset form
+      setQuestionText("");
+      setReferenceText("");
+      setSolutionText("");
+      setOptions([
+        { option_text: "", is_correct: false },
+        { option_text: "", is_correct: false },
+        { option_text: "", is_correct: false },
+        { option_text: "", is_correct: false },
+      ]);
+
+      onQuestionCreated?.();
+    } catch (error) {
+      console.error("Error creating question:", error);
       toast({
         title: "Failed to create question",
         variant: "destructive",
       });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!questionText.trim()) return;
-    if (!options.some((option) => option.isCorrect)) {
-      toast({
-        title: "Please mark at least one correct option",
-        variant: "destructive",
-      });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-    createQuestionMutation.mutate();
-  };
-
-  const addOption = () => {
-    setOptions([...options, { text: "", isCorrect: false }]);
-  };
-
-  const removeOption = (index: number) => {
-    if (options.length <= 2) return;
-    setOptions(options.filter((_, i) => i !== index));
   };
 
   return (
-    <Card className="p-6 mb-8">
+    <Card className="p-4">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Add New Question</h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
         <div className="space-y-2">
-          <Label>Question Text</Label>
-          <Textarea
-            value={questionText}
-            onChange={(e) => setQuestionText(e.target.value)}
-            placeholder="Enter your question"
-            required
+          <Label>Upload Image to Generate Question</Label>
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            disabled={isLoading}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Reference Text (Optional)</Label>
+          <Label htmlFor="questionText">Question Text</Label>
           <Textarea
+            id="questionText"
+            value={questionText}
+            onChange={(e) => setQuestionText(e.target.value)}
+            required
+            disabled={isLoading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="referenceText">Reference Text (Optional)</Label>
+          <Textarea
+            id="referenceText"
             value={referenceText}
             onChange={(e) => setReferenceText(e.target.value)}
-            placeholder="Add any reference material"
+            disabled={isLoading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="solutionText">Solution Text (Optional)</Label>
+          <Textarea
+            id="solutionText"
+            value={solutionText}
+            onChange={(e) => setSolutionText(e.target.value)}
+            disabled={isLoading}
           />
         </div>
 
@@ -131,73 +191,49 @@ const QuestionForm = ({ quizId, onClose }: QuestionFormProps) => {
           {options.map((option, index) => (
             <div key={index} className="flex gap-2">
               <Input
-                value={option.text}
+                value={option.option_text}
                 onChange={(e) =>
                   setOptions(
-                    options.map((o, i) =>
-                      i === index ? { ...o, text: e.target.value } : o
+                    options.map((opt, i) =>
+                      i === index
+                        ? { ...opt, option_text: e.target.value }
+                        : opt
                     )
                   )
                 }
                 placeholder={`Option ${index + 1}`}
                 required
+                disabled={isLoading}
               />
               <Button
                 type="button"
-                variant={option.isCorrect ? "default" : "outline"}
+                variant={option.is_correct ? "default" : "outline"}
                 onClick={() =>
                   setOptions(
-                    options.map((o, i) =>
-                      i === index ? { ...o, isCorrect: !o.isCorrect } : o
-                    )
+                    options.map((opt, i) => ({
+                      ...opt,
+                      is_correct: i === index,
+                    }))
                   )
                 }
+                disabled={isLoading}
               >
                 Correct
               </Button>
-              {options.length > 2 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => removeOption(index)}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-              )}
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addOption}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Option
-          </Button>
         </div>
 
-        <div className="space-y-2">
-          <Label>Solution Text (Optional)</Label>
-          <Textarea
-            value={solutionText}
-            onChange={(e) => setSolutionText(e.target.value)}
-            placeholder="Explain the solution"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Stamp (Optional)</Label>
-          <Input
-            value={stamp}
-            onChange={(e) => setStamp(e.target.value)}
-            placeholder="Add a stamp to group questions"
-          />
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button type="submit">Create Question</Button>
-        </div>
+        <Button type="submit" disabled={isLoading} className="w-full">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create Question"
+          )}
+        </Button>
       </form>
     </Card>
   );

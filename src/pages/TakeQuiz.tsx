@@ -45,27 +45,33 @@ const TakeQuiz = () => {
       });
       return;
     }
-    
-    // Create anonymous response
-    const { data: response, error } = await supabase
-      .from("responses")
-      .insert({
-        quiz_id: id,
-        user_email: email,
-        user_name: name,
-      })
-      .select()
-      .single();
 
-    if (error) {
+    try {
+      // Create anonymous response
+      const { data: response, error } = await supabase
+        .from("responses")
+        .insert({
+          quiz_id: id!,
+          user_email: email,
+          user_name: name,
+          user_id: crypto.randomUUID(), // Generate a random UUID for anonymous users
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setStarted(true);
+      toast({
+        title: "Quiz started successfully",
+      });
+    } catch (error) {
+      console.error("Error starting quiz:", error);
       toast({
         title: "Failed to start quiz",
         variant: "destructive",
       });
-      return;
     }
-
-    setStarted(true);
   };
 
   if (quizLoading) {
