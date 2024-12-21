@@ -1,7 +1,9 @@
-import { FileText, Share2, List, BarChart3 } from "lucide-react";
+import { FileText, Share2, List, BarChart3, Copy, Check } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface Quiz {
   id: string;
@@ -9,6 +11,7 @@ interface Quiz {
   created_at: string;
   questions_per_quiz: number;
   time_duration: number;
+  is_available: boolean;
 }
 
 interface QuizListProps {
@@ -16,6 +19,28 @@ interface QuizListProps {
 }
 
 const QuizList = ({ quizzes }: QuizListProps) => {
+  const { toast } = useToast();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyLink = (quiz: Quiz) => {
+    if (!quiz.is_available) {
+      toast({
+        title: "Quiz is not available",
+        description: "Make the quiz available in settings first",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const link = `${window.location.origin}/quiz/${quiz.id}/take`;
+    navigator.clipboard.writeText(link);
+    setCopiedId(quiz.id);
+    toast({
+      title: "Link copied to clipboard",
+    });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   if (quizzes.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -42,6 +67,7 @@ const QuizList = ({ quizzes }: QuizListProps) => {
               <div className="text-sm text-gray-600">
                 <div>Questions: {quiz.questions_per_quiz}</div>
                 <div>Duration: {Math.floor(quiz.time_duration / 60)} minutes</div>
+                <div>Status: {quiz.is_available ? "Available" : "Not Available"}</div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" asChild>
@@ -61,8 +87,16 @@ const QuizList = ({ quizzes }: QuizListProps) => {
                     Responses
                   </Link>
                 </Button>
-                <Button variant="outline" size="sm">
-                  <Share2 className="h-4 w-4" />
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleCopyLink(quiz)}
+                >
+                  {copiedId === quiz.id ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>

@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import QuizConfig from "./pages/QuizConfig";
 import QuizQuestions from "./pages/QuizQuestions";
 import QuizResponses from "./pages/QuizResponses";
+import TakeQuiz from "./pages/TakeQuiz";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<Index />} />
+            <Route path="/quiz/:id/take" element={<TakeQuiz />} />
             <Route
               path="/dashboard"
               element={
