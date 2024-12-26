@@ -44,7 +44,7 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: "Generate a multiple choice question based on this image. Return the response in JSON format with the following structure: { questionText: string, options: Array<{ text: string, isCorrect: boolean }>, referenceText: string, solutionText: string }. Make sure exactly one option is correct."
+              text: "Generate a multiple choice question based on this image. Return ONLY a JSON object with this exact structure, no markdown or other text: { questionText: string, options: Array<{ text: string, isCorrect: boolean }>, referenceText: string, solutionText: string }. Make sure exactly one option is correct."
             },
             {
               inline_data: {
@@ -72,8 +72,29 @@ serve(async (req) => {
       throw new Error('Invalid response format from Gemini API');
     }
 
-    const questionData = JSON.parse(data.candidates[0].content.parts[0].text);
-    console.log('Parsed question data:', questionData);
+    // Extract the text content and parse it as JSON
+    const textContent = data.candidates[0].content.parts[0].text;
+    console.log('Raw text content:', textContent);
+
+    // Try to parse the response as JSON, with error handling
+    let questionData;
+    try {
+      questionData = JSON.parse(textContent);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      // If JSON parsing fails, try to extract JSON from the text
+      const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          questionData = JSON.parse(jsonMatch[0]);
+        } catch (secondaryParseError) {
+          console.error('Secondary JSON parse error:', secondaryParseError);
+          throw new Error('Failed to parse question data from response');
+        }
+      } else {
+        throw new Error('No valid JSON found in response');
+      }
+    }
 
     // Validate the question data structure
     if (!questionData.questionText || !Array.isArray(questionData.options)) {
