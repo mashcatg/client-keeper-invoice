@@ -23,7 +23,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Calling Gemini API with image URL:', imageUrl);
+    console.log('Processing image URL:', imageUrl);
 
     // Convert image URL to base64
     const imageResponse = await fetch(imageUrl);
@@ -34,7 +34,7 @@ serve(async (req) => {
       reader.readAsDataURL(imageBlob);
     });
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
