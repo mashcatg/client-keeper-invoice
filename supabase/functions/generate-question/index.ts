@@ -44,7 +44,19 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: "Generate a multiple choice question based on this image. Return ONLY a JSON object with this exact structure, no markdown or other text: { questionText: string, options: Array<{ text: string, isCorrect: boolean }>, referenceText: string, solutionText: string }. Make sure exactly one option is correct."
+              text: `Analyze this image and extract multiple choice questions. For each question:
+              1. Keep the original language (don't translate)
+              2. Extract reference text if it's inside square brackets [], otherwise set as null
+              3. Extract solution text if there's any explanation marked with ব্যাখ্যা/solution/solve, otherwise set as null
+              4. Identify the correct answer by looking for ticks, filled options, or answers written beside questions
+              5. Return ONLY a JSON array of questions with this structure:
+              [{
+                questionText: string,
+                options: Array<{ text: string, isCorrect: boolean }>,
+                referenceText: string | null,
+                solutionText: string | null
+              }]
+              Make sure exactly one option is correct for each question.`
             },
             {
               inline_data: {
@@ -77,32 +89,44 @@ serve(async (req) => {
     console.log('Raw text content:', textContent);
 
     // Try to parse the response as JSON, with error handling
-    let questionData;
+    let questionsData;
     try {
-      questionData = JSON.parse(textContent);
+      questionsData = JSON.parse(textContent);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       // If JSON parsing fails, try to extract JSON from the text
-      const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+      const jsonMatch = textContent.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         try {
-          questionData = JSON.parse(jsonMatch[0]);
+          questionsData = JSON.parse(jsonMatch[0]);
         } catch (secondaryParseError) {
           console.error('Secondary JSON parse error:', secondaryParseError);
-          throw new Error('Failed to parse question data from response');
+          throw new Error('Failed to parse questions data from response');
         }
       } else {
         throw new Error('No valid JSON found in response');
       }
     }
 
-    // Validate the question data structure
-    if (!questionData.questionText || !Array.isArray(questionData.options)) {
-      throw new Error('Invalid question data format');
+    // Ensure we have an array of questions
+    if (!Array.isArray(questionsData)) {
+      questionsData = [questionsData];
     }
 
+    // Validate each question's data structure
+    questionsData.forEach((question, index) => {
+      if (!question.questionText || !Array.isArray(question.options)) {
+        throw new Error(`Invalid question data format for question ${index + 1}`);
+      }
+      // Ensure exactly one correct answer
+      const correctAnswers = question.options.filter(opt => opt.isCorrect).length;
+      if (correctAnswers !== 1) {
+        throw new Error(`Question ${index + 1} must have exactly one correct answer`);
+      }
+    });
+
     return new Response(
-      JSON.stringify(questionData),
+      JSON.stringify(questionsData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
