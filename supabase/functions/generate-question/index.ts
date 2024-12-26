@@ -64,7 +64,8 @@ serve(async (req) => {
                     ]
                   }
                 ]
-              }`
+              }
+              Important: Do not include any markdown formatting or code block syntax in your response. Return only the raw JSON.`
             },
             {
               inline_data: {
@@ -95,18 +96,30 @@ serve(async (req) => {
     const textContent = data.candidates[0].content.parts[0].text;
     console.log('Raw text content:', textContent);
 
-    // Try to find and extract JSON from the response
-    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response');
-    }
+    // Clean the text content by removing markdown formatting
+    const cleanedContent = textContent
+      .replace(/```json\n?/g, '')  // Remove ```json
+      .replace(/```\n?/g, '')      // Remove closing ```
+      .trim();                     // Remove extra whitespace
+
+    console.log('Cleaned content:', cleanedContent);
 
     let parsedData;
     try {
-      parsedData = JSON.parse(jsonMatch[0]);
+      parsedData = JSON.parse(cleanedContent);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      throw new Error('Failed to parse response as JSON');
+      // Try to find and extract JSON if the first attempt fails
+      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No valid JSON found in response');
+      }
+      try {
+        parsedData = JSON.parse(jsonMatch[0]);
+      } catch (secondaryParseError) {
+        console.error('Secondary JSON parse error:', secondaryParseError);
+        throw new Error('Failed to parse response as JSON');
+      }
     }
 
     if (!parsedData.questions || !Array.isArray(parsedData.questions)) {
