@@ -3,14 +3,14 @@ import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { QuestionFormProps, QuestionData } from "./types";
+import { QuestionFormProps } from "./types";
 import { useQuestionFormState } from "./useQuestionFormState";
 import { handleQuestionSubmit } from "./questionFormHandlers";
 import { QuestionOptions } from "./QuestionOptions";
+import RichTextEditor from "./RichTextEditor";
 
 const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +24,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
     setIsLoading(true);
     try {
-      // Upload image to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const filePath = `${crypto.randomUUID()}.${fileExt}`;
       
@@ -34,12 +33,10 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
       if (uploadError) throw uploadError;
 
-      // Get public URL for the uploaded image
       const { data: { publicUrl } } = supabase.storage
         .from('question_images')
         .getPublicUrl(filePath);
 
-      // Call the Edge Function to generate question
       const { data, error } = await supabase.functions.invoke('generate-question', {
         body: { imageUrl: publicUrl }
       });
@@ -48,29 +45,38 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
       console.log('Processed questions:', data);
 
-      // Handle the response - we expect an array with one question
+      // Handle multiple questions
       if (Array.isArray(data) && data.length > 0) {
-        const generatedQuestion = data[0];
-        updateQuestionState({
-          questionText: generatedQuestion.questionText,
-          referenceText: generatedQuestion.referenceText || '',
-          solutionText: generatedQuestion.solutionText || '',
-          options: generatedQuestion.options.map((opt: any) => ({
-            option_text: opt.text,
-            is_correct: opt.isCorrect
-          }))
-        });
+        // Create all questions sequentially
+        for (const question of data) {
+          await handleQuestionSubmit({
+            questionState: {
+              questionText: question.questionText,
+              referenceText: question.referenceText || '',
+              solutionText: question.solutionText || '',
+              options: question.options.map((opt: any) => ({
+                option_text: opt.text,
+                is_correct: opt.isCorrect
+              }))
+            },
+            quizId,
+            supabase,
+            toast,
+          });
+        }
 
         toast({
-          title: "Question generated successfully",
+          title: `${data.length} questions generated successfully`,
         });
-      } else {
-        throw new Error('Invalid response format from question generation');
+        
+        resetForm();
+        onQuestionCreated?.();
+        onClose?.();
       }
     } catch (error) {
       console.error('Error:', error);
       toast({
-        title: "Failed to generate question",
+        title: "Failed to generate questions",
         variant: "destructive",
       });
     } finally {
@@ -97,7 +103,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
     <Card className="p-4">
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label>Upload Image to Generate Question</Label>
+          <Label>Upload Image to Generate Questions</Label>
           <Input
             type="file"
             accept="image/*"
@@ -108,31 +114,27 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
         <div className="space-y-2">
           <Label htmlFor="questionText">Question Text</Label>
-          <Textarea
-            id="questionText"
+          <RichTextEditor
             value={questionState.questionText}
-            onChange={(e) => updateQuestionState({ questionText: e.target.value })}
-            required
+            onChange={(value) => updateQuestionState({ questionText: value })}
             disabled={isLoading}
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="referenceText">Reference Text (Optional)</Label>
-          <Textarea
-            id="referenceText"
+          <RichTextEditor
             value={questionState.referenceText}
-            onChange={(e) => updateQuestionState({ referenceText: e.target.value })}
+            onChange={(value) => updateQuestionState({ referenceText: value })}
             disabled={isLoading}
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="solutionText">Solution Text (Optional)</Label>
-          <Textarea
-            id="solutionText"
+          <RichTextEditor
             value={questionState.solutionText}
-            onChange={(e) => updateQuestionState({ solutionText: e.target.value })}
+            onChange={(value) => updateQuestionState({ solutionText: value })}
             disabled={isLoading}
           />
         </div>

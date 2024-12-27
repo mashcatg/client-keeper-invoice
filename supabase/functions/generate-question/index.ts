@@ -44,23 +44,26 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: `Analyze this image and create a multiple choice question. Return a JSON object with this exact structure:
-              {
-                "questionText": "string",
-                "referenceText": null,
-                "solutionText": null,
-                "options": [
-                  {
-                    "text": "string",
-                    "isCorrect": boolean
-                  }
-                ]
-              }
+              text: `Analyze this image and create multiple choice questions. Return a JSON array with this exact structure:
+              [
+                {
+                  "questionText": "string",
+                  "referenceText": "",
+                  "solutionText": "",
+                  "options": [
+                    {
+                      "text": "string",
+                      "isCorrect": boolean
+                    }
+                  ]
+                }
+              ]
               Important: 
               1. Keep the original language (do not translate)
               2. Return only raw JSON, no markdown or code blocks
-              3. Ensure exactly one option is marked as correct
-              4. Return only one question at a time`
+              3. Ensure exactly one option is marked as correct per question
+              4. Create as many questions as you can find in the image
+              5. Return empty string for referenceText and solutionText if not applicable`
             },
             {
               inline_data: {
@@ -95,8 +98,8 @@ serve(async (req) => {
     const cleanedContent = textContent
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
-      .replace(/^\s*{\s*/, '{')
-      .replace(/\s*}\s*$/, '}')
+      .replace(/^\s*\[\s*/, '[')
+      .replace(/\s*\]\s*$/, ']')
       .trim();
 
     console.log('Cleaned content:', cleanedContent);
@@ -108,7 +111,7 @@ serve(async (req) => {
       console.error('Initial JSON parse error:', parseError);
       
       // Try to extract JSON if initial parse fails
-      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+      const jsonMatch = cleanedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
       if (!jsonMatch) {
         throw new Error('No valid JSON found in response');
       }
@@ -121,26 +124,26 @@ serve(async (req) => {
       }
     }
 
-    // Validate the question structure
-    if (!parsedData.questionText || !Array.isArray(parsedData.options)) {
-      throw new Error('Invalid question format');
+    // Validate the questions structure
+    if (!Array.isArray(parsedData)) {
+      parsedData = [parsedData];
     }
 
-    // Ensure exactly one correct answer
-    const correctAnswers = parsedData.options.filter(opt => opt.isCorrect).length;
-    if (correctAnswers !== 1) {
-      parsedData.options[0].isCorrect = true;
-      for (let i = 1; i < parsedData.options.length; i++) {
-        parsedData.options[i].isCorrect = false;
-      }
-    }
+    // Ensure each question has the correct structure
+    parsedData = parsedData.map(question => ({
+      ...question,
+      referenceText: question.referenceText || '',
+      solutionText: question.solutionText || '',
+      options: question.options.map((opt, index, arr) => ({
+        ...opt,
+        isCorrect: arr.filter(o => o.isCorrect).length === 0 && index === 0 ? true : opt.isCorrect
+      }))
+    }));
 
-    // Wrap the question in an array to match the expected format
-    const formattedResponse = [parsedData];
-    console.log('Formatted response:', formattedResponse);
+    console.log('Formatted response:', parsedData);
 
     return new Response(
-      JSON.stringify(formattedResponse),
+      JSON.stringify(parsedData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 

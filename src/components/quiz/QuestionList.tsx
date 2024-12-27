@@ -10,7 +10,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
-import { Edit2, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 interface Option {
   id: string;
@@ -85,42 +85,45 @@ const QuestionList = ({ questions }: QuestionListProps) => {
               <Card key={question.id} className="p-4">
                 <Accordion
                   type="single"
-                  value={expandedQuestion || ""}
+                  collapsible
+                  value={expandedQuestion}
                   onValueChange={setExpandedQuestion}
                 >
                   <AccordionItem value={question.id}>
-                    <AccordionTrigger>
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-left">{question.question_text}</span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(question.id);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
+                    <div className="flex items-center justify-between">
+                      <AccordionTrigger className="flex-1">
+                        <div 
+                          className="text-left"
+                          dangerouslySetInnerHTML={{ __html: question.question_text }}
+                        />
+                      </AccordionTrigger>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(question.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <AccordionContent>
                       <div className="space-y-4 pt-4">
                         {question.reference_text && (
                           <div>
                             <h4 className="font-semibold">Reference:</h4>
-                            <p className="text-gray-600">
-                              {question.reference_text}
-                            </p>
+                            <div
+                              className="text-gray-600"
+                              dangerouslySetInnerHTML={{ __html: question.reference_text }}
+                            />
                           </div>
                         )}
 
                         <div>
                           <h4 className="font-semibold mb-2">Options:</h4>
                           <div className="space-y-2">
-                            {question.options.map((option, index) => (
+                            {question.options.map((option) => (
                               <div
                                 key={option.id}
                                 className={`p-2 rounded ${
@@ -129,7 +132,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
                                     : "bg-gray-50 border border-gray-200"
                                 }`}
                               >
-                                {option.option_text}
+                                <div dangerouslySetInnerHTML={{ __html: option.option_text }} />
                                 {option.is_correct && (
                                   <span className="text-green-600 text-sm ml-2">
                                     (Correct)
@@ -142,11 +145,11 @@ const QuestionList = ({ questions }: QuestionListProps) => {
 
                         {question.solution_text && (
                           <div>
-                            
                             <h4 className="font-semibold">Solution:</h4>
-                            <p className="text-gray-600">
-                              {question.solution_text}
-                            </p>
+                            <div
+                              className="text-gray-600"
+                              dangerouslySetInnerHTML={{ __html: question.solution_text }}
+                            />
                           </div>
                         )}
                       </div>

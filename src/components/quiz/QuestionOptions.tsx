@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QuestionOption } from "./types";
+import RichTextEditor from "./RichTextEditor";
 
 interface QuestionOptionsProps {
   options: QuestionOption[];
@@ -19,21 +19,21 @@ export const QuestionOptions = ({
       <Label>Options</Label>
       {options.map((option, index) => (
         <div key={index} className="flex gap-2">
-          <Input
-            value={option.option_text}
-            onChange={(e) =>
-              onOptionsChange(
-                options.map((opt, i) =>
-                  i === index
-                    ? { ...opt, option_text: e.target.value }
-                    : opt
+          <div className="flex-1">
+            <RichTextEditor
+              value={option.option_text}
+              onChange={(value) =>
+                onOptionsChange(
+                  options.map((opt, i) =>
+                    i === index
+                      ? { ...opt, option_text: value }
+                      : opt
+                  )
                 )
-              )
-            }
-            placeholder={`Option ${index + 1}`}
-            required
-            disabled={isLoading}
-          />
+              }
+              disabled={isLoading}
+            />
+          </div>
           <Button
             type="button"
             variant={option.is_correct ? "default" : "outline"}
