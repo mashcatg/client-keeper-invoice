@@ -11,9 +11,11 @@ import { useQuestionFormState } from "./useQuestionFormState";
 import { handleQuestionSubmit } from "./questionFormHandlers";
 import { QuestionOptions } from "./QuestionOptions";
 import RichTextEditor from "./RichTextEditor";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
   const supabase = useSupabaseClient();
   const { toast } = useToast();
   const { questionState, updateQuestionState, resetForm } = useQuestionFormState();
@@ -45,34 +47,13 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
       console.log('Processed questions:', data);
 
-      // Handle multiple questions
-      if (Array.isArray(data) && data.length > 0) {
-        // Create all questions sequentially
-        for (const question of data) {
-          await handleQuestionSubmit({
-            questionState: {
-              questionText: question.questionText,
-              referenceText: question.referenceText || '',
-              solutionText: question.solutionText || '',
-              options: question.options.map((opt: any) => ({
-                option_text: opt.text,
-                is_correct: opt.isCorrect
-              }))
-            },
-            quizId,
-            supabase,
-            toast,
-          });
-        }
+      // Set generated questions for editing
+      setGeneratedQuestions(data.map((q: any) => ({
+        ...q,
+        referenceText: q.referenceText || '',
+        solutionText: q.solutionText || '',
+      })));
 
-        toast({
-          title: `${data.length} questions generated successfully`,
-        });
-        
-        resetForm();
-        onQuestionCreated?.();
-        onClose?.();
-      }
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -84,24 +65,55 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
     }
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await handleQuestionSubmit({
-      questionState,
-      quizId,
-      supabase,
-      toast,
-      onSuccess: () => {
-        resetForm();
-        onQuestionCreated?.();
-        onClose?.();
-      },
-    });
+  const handleSaveAll = async () => {
+    setIsLoading(true);
+    try {
+      // Save all generated questions
+      for (const question of generatedQuestions) {
+        await handleQuestionSubmit({
+          questionState: {
+            questionText: question.questionText,
+            referenceText: question.referenceText,
+            solutionText: question.solutionText,
+            options: question.options.map((opt: any) => ({
+              option_text: opt.text,
+              is_correct: opt.isCorrect
+            }))
+          },
+          quizId,
+          supabase,
+          toast,
+        });
+      }
+
+      toast({
+        title: `${generatedQuestions.length} questions saved successfully`,
+      });
+      
+      setGeneratedQuestions([]);
+      resetForm();
+      onQuestionCreated?.();
+      onClose?.();
+    } catch (error) {
+      console.error('Error saving questions:', error);
+      toast({
+        title: "Failed to save questions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateGeneratedQuestion = (index: number, updates: any) => {
+    setGeneratedQuestions(prev => 
+      prev.map((q, i) => i === index ? { ...q, ...updates } : q)
+    );
   };
 
   return (
     <Card className="p-4">
-      <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-4">
         <div className="space-y-2">
           <Label>Upload Image to Generate Questions</Label>
           <Input
@@ -112,57 +124,109 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="questionText">Question Text</Label>
-          <RichTextEditor
-            value={questionState.questionText}
-            onChange={(value) => updateQuestionState({ questionText: value })}
-            disabled={isLoading}
-          />
-        </div>
+        {generatedQuestions.length > 0 && (
+          <>
+            <Accordion type="single" collapsible className="w-full space-y-4">
+              {generatedQuestions.map((question, index) => (
+                <AccordionItem key={index} value={`question-${index}`}>
+                  <AccordionTrigger>Question {index + 1}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <Label>Question Text</Label>
+                        <RichTextEditor
+                          value={question.questionText}
+                          onChange={(value) => updateGeneratedQuestion(index, { questionText: value })}
+                          disabled={isLoading}
+                        />
+                      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="referenceText">Reference Text (Optional)</Label>
-          <RichTextEditor
-            value={questionState.referenceText}
-            onChange={(value) => updateQuestionState({ referenceText: value })}
-            disabled={isLoading}
-          />
-        </div>
+                      <div className="space-y-2">
+                        <Label>Reference Text (Optional)</Label>
+                        <RichTextEditor
+                          value={question.referenceText}
+                          onChange={(value) => updateGeneratedQuestion(index, { referenceText: value })}
+                          disabled={isLoading}
+                        />
+                      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="solutionText">Solution Text (Optional)</Label>
-          <RichTextEditor
-            value={questionState.solutionText}
-            onChange={(value) => updateQuestionState({ solutionText: value })}
-            disabled={isLoading}
-          />
-        </div>
+                      <div className="space-y-2">
+                        <Label>Solution Text (Optional)</Label>
+                        <RichTextEditor
+                          value={question.solutionText}
+                          onChange={(value) => updateGeneratedQuestion(index, { solutionText: value })}
+                          disabled={isLoading}
+                        />
+                      </div>
 
-        <QuestionOptions
-          options={questionState.options}
-          onOptionsChange={(newOptions) => updateQuestionState({ options: newOptions })}
-          isLoading={isLoading}
-        />
+                      <div className="space-y-2">
+                        <Label>Options</Label>
+                        {question.options.map((option: any, optIndex: number) => (
+                          <div key={optIndex} className="flex gap-2">
+                            <div className="flex-1">
+                              <RichTextEditor
+                                value={option.text}
+                                onChange={(value) => {
+                                  const newOptions = [...question.options];
+                                  newOptions[optIndex] = { ...option, text: value };
+                                  updateGeneratedQuestion(index, { options: newOptions });
+                                }}
+                                disabled={isLoading}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant={option.isCorrect ? "default" : "outline"}
+                              onClick={() => {
+                                const newOptions = question.options.map((opt: any, i: number) => ({
+                                  ...opt,
+                                  isCorrect: i === optIndex,
+                                }));
+                                updateGeneratedQuestion(index, { options: newOptions });
+                              }}
+                              disabled={isLoading}
+                            >
+                              Correct
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
 
-        <div className="flex gap-2">
-          <Button type="submit" disabled={isLoading} className="flex-1">
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Create Question"
-            )}
-          </Button>
-          {onClose && (
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-          )}
-        </div>
-      </form>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleSaveAll} 
+                disabled={isLoading}
+                className="flex-1"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save All Questions"
+                )}
+              </Button>
+              {onClose && (
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+
+        {!generatedQuestions.length && (
+          <div className="text-center text-gray-500">
+            Upload an image to generate questions
+          </div>
+        )}
+      </div>
     </Card>
   );
 };
