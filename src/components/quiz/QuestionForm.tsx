@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { QuestionFormProps } from "./types";
 import { useQuestionFormState } from "./useQuestionFormState";
 import { handleQuestionSubmit } from "./questionFormHandlers";
@@ -16,6 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
+  const [showManualForm, setShowManualForm] = useState(false);
   const supabase = useSupabaseClient();
   const { toast } = useToast();
   const { questionState, updateQuestionState, resetForm } = useQuestionFormState();
@@ -47,7 +48,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
       console.log('Processed questions:', data);
 
-      // Set generated questions for editing
       setGeneratedQuestions(data.map((q: any) => ({
         ...q,
         referenceText: q.referenceText || '',
@@ -65,10 +65,29 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
     }
   };
 
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await handleQuestionSubmit({
+        questionState,
+        quizId,
+        supabase,
+        toast,
+        onSuccess: () => {
+          resetForm();
+          setShowManualForm(false);
+          onQuestionCreated?.();
+        },
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSaveAll = async () => {
     setIsLoading(true);
     try {
-      // Save all generated questions
       for (const question of generatedQuestions) {
         await handleQuestionSubmit({
           questionState: {
@@ -114,15 +133,81 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
   return (
     <Card className="p-4">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Upload Image to Generate Questions</Label>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Label>Upload Image to Generate Questions</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              disabled={isLoading}
+            />
+          </div>
+          <Button
+            onClick={() => setShowManualForm(!showManualForm)}
             disabled={isLoading}
-          />
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Manual Question
+          </Button>
         </div>
+
+        {showManualForm && (
+          <form onSubmit={handleManualSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Question Text</Label>
+              <RichTextEditor
+                value={questionState.questionText}
+                onChange={(value) => updateQuestionState({ questionText: value })}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Reference Text (Optional)</Label>
+              <RichTextEditor
+                value={questionState.referenceText}
+                onChange={(value) => updateQuestionState({ referenceText: value })}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Solution Text (Optional)</Label>
+              <RichTextEditor
+                value={questionState.solutionText}
+                onChange={(value) => updateQuestionState({ solutionText: value })}
+                disabled={isLoading}
+              />
+            </div>
+
+            <QuestionOptions
+              options={questionState.options}
+              onOptionsChange={(options) => updateQuestionState({ options })}
+              isLoading={isLoading}
+            />
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={isLoading} className="flex-1">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Question"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowManualForm(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
 
         {generatedQuestions.length > 0 && (
           <>
@@ -219,12 +304,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
               )}
             </div>
           </>
-        )}
-
-        {!generatedQuestions.length && (
-          <div className="text-center text-gray-500">
-            Upload an image to generate questions
-          </div>
         )}
       </div>
     </Card>

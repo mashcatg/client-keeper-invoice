@@ -4,11 +4,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 
@@ -35,7 +40,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   const supabase = useSupabaseClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
 
   const handleDelete = async (questionId: string) => {
     const { error } = await supabase
@@ -55,6 +60,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
     toast({
       title: "Question deleted successfully",
     });
+    setQuestionToDelete(null);
   };
 
   if (questions.length === 0) {
@@ -82,80 +88,87 @@ const QuestionList = ({ questions }: QuestionListProps) => {
           <h3 className="text-lg font-semibold">{stamp}</h3>
           <div className="space-y-4">
             {questions.map((question) => (
-              <Card key={question.id} className="p-4">
-                <Accordion
-                  type="single"
-                  collapsible
-                  value={expandedQuestion}
-                  onValueChange={setExpandedQuestion}
-                >
-                  <AccordionItem value={question.id}>
-                    <div className="flex items-center justify-between">
-                      <AccordionTrigger className="flex-1">
-                        <div 
-                          className="text-left"
-                          dangerouslySetInnerHTML={{ __html: question.question_text }}
-                        />
-                      </AccordionTrigger>
+              <Card key={question.id} className="p-4 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div 
+                    className="flex-1"
+                    dangerouslySetInnerHTML={{ __html: question.question_text }}
+                  />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(question.id);
+                          setQuestionToDelete(question.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                    <AccordionContent>
-                      <div className="space-y-4 pt-4">
-                        {question.reference_text && (
-                          <div>
-                            <h4 className="font-semibold">Reference:</h4>
-                            <div
-                              className="text-gray-600"
-                              dangerouslySetInnerHTML={{ __html: question.reference_text }}
-                            />
-                          </div>
-                        )}
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the
+                          question and all its options.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(question.id)}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
 
-                        <div>
-                          <h4 className="font-semibold mb-2">Options:</h4>
-                          <div className="space-y-2">
-                            {question.options.map((option) => (
-                              <div
-                                key={option.id}
-                                className={`p-2 rounded ${
-                                  option.is_correct
-                                    ? "bg-green-50 border border-green-200"
-                                    : "bg-gray-50 border border-gray-200"
-                                }`}
-                              >
-                                <div dangerouslySetInnerHTML={{ __html: option.option_text }} />
-                                {option.is_correct && (
-                                  <span className="text-green-600 text-sm ml-2">
-                                    (Correct)
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                {question.reference_text && (
+                  <div>
+                    <h4 className="font-semibold">Reference:</h4>
+                    <div
+                      className="text-gray-600"
+                      dangerouslySetInnerHTML={{ __html: question.reference_text }}
+                    />
+                  </div>
+                )}
 
-                        {question.solution_text && (
-                          <div>
-                            <h4 className="font-semibold">Solution:</h4>
-                            <div
-                              className="text-gray-600"
-                              dangerouslySetInnerHTML={{ __html: question.solution_text }}
-                            />
-                          </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Options:</h4>
+                  <div className="space-y-2">
+                    {question.options.map((option) => (
+                      <div
+                        key={option.id}
+                        className={`p-2 rounded ${
+                          option.is_correct
+                            ? "bg-green-50 border border-green-200"
+                            : "bg-gray-50 border border-gray-200"
+                        }`}
+                      >
+                        <div dangerouslySetInnerHTML={{ __html: option.option_text }} />
+                        {option.is_correct && (
+                          <span className="text-green-600 text-sm ml-2">
+                            (Correct)
+                          </span>
                         )}
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                    ))}
+                  </div>
+                </div>
+
+                {question.solution_text && (
+                  <div>
+                    <h4 className="font-semibold">Solution:</h4>
+                    <div
+                      className="text-gray-600"
+                      dangerouslySetInnerHTML={{ __html: question.solution_text }}
+                    />
+                  </div>
+                )}
               </Card>
             ))}
           </div>
