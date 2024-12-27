@@ -44,28 +44,23 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: `Analyze this image and extract multiple choice questions. For each question:
-              1. Keep the original language (do not translate)
-              2. Extract reference text if it's inside square brackets [], otherwise set as null
-              3. Extract solution text if there's any explanation marked with ব্যাখ্যা/solution/solve, otherwise set as null
-              4. Identify the correct answer by looking for ticks, filled options, or answers written beside questions
-              5. Return a JSON array with this exact structure, no markdown formatting:
+              text: `Analyze this image and create a multiple choice question. Return a JSON object with this exact structure:
               {
-                "questions": [
+                "questionText": "string",
+                "referenceText": null,
+                "solutionText": null,
+                "options": [
                   {
-                    "questionText": "string",
-                    "referenceText": "string or null",
-                    "solutionText": "string or null",
-                    "options": [
-                      {
-                        "text": "string",
-                        "isCorrect": boolean
-                      }
-                    ]
+                    "text": "string",
+                    "isCorrect": boolean
                   }
                 ]
               }
-              Important: Do not include any markdown formatting or code block syntax in your response. Return only the raw JSON.`
+              Important: 
+              1. Keep the original language (do not translate)
+              2. Return only raw JSON, no markdown or code blocks
+              3. Ensure exactly one option is marked as correct
+              4. Return only one question at a time`
             },
             {
               inline_data: {
@@ -89,18 +84,20 @@ serve(async (req) => {
     const data = await response.json();
     console.log('Gemini API raw response:', data);
 
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
       throw new Error('Invalid response format from Gemini API');
     }
 
     const textContent = data.candidates[0].content.parts[0].text;
     console.log('Raw text content:', textContent);
 
-    // Clean the text content by removing markdown formatting
+    // Clean and parse the response
     const cleanedContent = textContent
-      .replace(/```json\n?/g, '')  // Remove ```json
-      .replace(/```\n?/g, '')      // Remove closing ```
-      .trim();                     // Remove extra whitespace
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .replace(/^\s*{\s*/, '{')
+      .replace(/\s*}\s*$/, '}')
+      .trim();
 
     console.log('Cleaned content:', cleanedContent);
 
@@ -108,12 +105,14 @@ serve(async (req) => {
     try {
       parsedData = JSON.parse(cleanedContent);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      // Try to find and extract JSON if the first attempt fails
+      console.error('Initial JSON parse error:', parseError);
+      
+      // Try to extract JSON if initial parse fails
       const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No valid JSON found in response');
       }
+      
       try {
         parsedData = JSON.parse(jsonMatch[0]);
       } catch (secondaryParseError) {
@@ -122,32 +121,29 @@ serve(async (req) => {
       }
     }
 
-    if (!parsedData.questions || !Array.isArray(parsedData.questions)) {
-      throw new Error('Invalid questions data format');
+    // Validate the question structure
+    if (!parsedData.questionText || !Array.isArray(parsedData.options)) {
+      throw new Error('Invalid question format');
     }
 
-    // Validate each question
-    parsedData.questions.forEach((question, index) => {
-      if (!question.questionText || !Array.isArray(question.options)) {
-        throw new Error(`Invalid format for question ${index + 1}`);
+    // Ensure exactly one correct answer
+    const correctAnswers = parsedData.options.filter(opt => opt.isCorrect).length;
+    if (correctAnswers !== 1) {
+      parsedData.options[0].isCorrect = true;
+      for (let i = 1; i < parsedData.options.length; i++) {
+        parsedData.options[i].isCorrect = false;
       }
-      
-      // Ensure exactly one correct answer
-      const correctAnswers = question.options.filter(opt => opt.isCorrect).length;
-      if (correctAnswers !== 1) {
-        question.options[0].isCorrect = true;
-        for (let i = 1; i < question.options.length; i++) {
-          question.options[i].isCorrect = false;
-        }
-      }
-    });
+    }
 
-    console.log('Processed questions:', parsedData.questions);
+    // Wrap the question in an array to match the expected format
+    const formattedResponse = [parsedData];
+    console.log('Formatted response:', formattedResponse);
 
     return new Response(
-      JSON.stringify(parsedData.questions),
+      JSON.stringify(formattedResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
+
   } catch (error) {
     console.error('Error in generate-question function:', error);
     return new Response(
