@@ -19,7 +19,7 @@ export const QuestionOptions = ({
       <Label>Options</Label>
       {options.map((option, index) => (
         <div key={index} className="flex gap-2">
-          <div className="flex-1">
+          <div className="flex-1 bg-white">
             <CKEditorWrapper
               value={option.option_text}
               onChange={(value) =>

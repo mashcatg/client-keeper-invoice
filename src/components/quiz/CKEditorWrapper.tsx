@@ -31,7 +31,7 @@ const CKEditorWrapper = ({
   }
 
   return (
-    <div className="min-h-[100px] border rounded-md overflow-hidden">
+    <div className="min-h-[100px] border rounded-md overflow-hidden bg-white">
       <CKEditor
         editor={ClassicEditor}
         data={value}
