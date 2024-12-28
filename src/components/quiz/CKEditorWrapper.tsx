@@ -1,6 +1,6 @@
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface CKEditorWrapperProps {
   value: string;
@@ -16,10 +16,17 @@ const CKEditorWrapper = ({
   disabled,
 }: CKEditorWrapperProps) => {
   const [mounted, setMounted] = useState(false);
+  const editorRef = useRef<any>(null);
 
   useEffect(() => {
     setMounted(true);
-    return () => setMounted(false);
+    return () => {
+      if (editorRef.current) {
+        editorRef.current.destroy?.()
+          .catch((error: any) => console.error('Editor cleanup failed:', error));
+      }
+      setMounted(false);
+    };
   }, []);
 
   if (!mounted) {
@@ -35,6 +42,9 @@ const CKEditorWrapper = ({
       <CKEditor
         editor={ClassicEditor}
         data={value}
+        onReady={(editor) => {
+          editorRef.current = editor;
+        }}
         onChange={(event, editor) => {
           const data = editor.getData();
           onChange(data);
