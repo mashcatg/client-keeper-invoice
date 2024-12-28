@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
   const [showManualForm, setShowManualForm] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<number[]>([]);
   const supabase = useSupabaseClient();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { questionState, updateQuestionState, resetForm } = useQuestionFormState();
 
@@ -52,8 +54,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
       if (error) throw error;
 
-      console.log('Processed questions:', data);
-
       setGeneratedQuestions(data.map((q: any) => ({
         ...q,
         referenceText: q.referenceText || '',
@@ -85,6 +85,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         onSuccess: () => {
           resetForm();
           setShowManualForm(false);
+          queryClient.invalidateQueries({ queryKey: ["questions", quizId] });
           onQuestionCreated?.();
         },
       });
@@ -116,6 +117,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         });
       }
 
+      queryClient.invalidateQueries({ queryKey: ["questions", quizId] });
       toast({
         title: `${questionsToSave.length} questions saved successfully`,
       });
@@ -170,6 +172,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
               accept="image/*"
               onChange={handleImageUpload}
               disabled={isLoading}
+              className="mt-1"
             />
           </div>
           <Button
