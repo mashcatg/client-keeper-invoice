@@ -29,6 +29,16 @@ const CKEditorWrapper = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (editorRef.current) {
+      if (disabled) {
+        editorRef.current.enableReadOnlyMode('disabled');
+      } else {
+        editorRef.current.disableReadOnlyMode('disabled');
+      }
+    }
+  }, [disabled]);
+
   if (!mounted) {
     return (
       <div className="min-h-[100px] border rounded-md bg-gray-50 p-4">
@@ -44,18 +54,14 @@ const CKEditorWrapper = ({
         data={value}
         onReady={(editor) => {
           editorRef.current = editor;
-          // Set initial disabled state
           if (disabled) {
             editor.enableReadOnlyMode('disabled');
-          } else {
-            editor.disableReadOnlyMode('disabled');
           }
         }}
         onChange={(event, editor) => {
           const data = editor.getData();
           onChange(data);
         }}
-        disabled={disabled}
         config={{
           placeholder: placeholder,
           toolbar: [

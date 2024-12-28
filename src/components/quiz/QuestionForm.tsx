@@ -10,8 +10,8 @@ import { Loader2, Plus } from "lucide-react";
 import { QuestionFormProps } from "./types";
 import { useQuestionFormState } from "./useQuestionFormState";
 import { handleQuestionSubmit } from "./questionFormHandlers";
-import { QuestionOptions } from "./QuestionOptions";
-import CKEditorWrapper from "./CKEditorWrapper";
+import ManualQuestionForm from "./ManualQuestionForm";
+import GeneratedQuestionCard from "./GeneratedQuestionCard";
 
 const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,9 +26,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Clear previous data
     setGeneratedQuestions([]);
-    setSelectedQuestions([]);
     setShowManualForm(false);
     resetForm();
 
@@ -57,8 +55,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         ...q,
         referenceText: q.referenceText || '',
         solutionText: q.solutionText || '',
-        isSelected: false,
-        linkedTo: null
       })));
 
     } catch (error) {
@@ -159,144 +155,29 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         </div>
 
         {showManualForm && (
-          <form onSubmit={handleManualSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Question Text</Label>
-              <CKEditorWrapper
-                value={questionState.questionText}
-                onChange={(value) => updateQuestionState({ questionText: value })}
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Reference Text (Optional)</Label>
-              <CKEditorWrapper
-                value={questionState.referenceText}
-                onChange={(value) => updateQuestionState({ referenceText: value })}
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Solution Text (Optional)</Label>
-              <CKEditorWrapper
-                value={questionState.solutionText}
-                onChange={(value) => updateQuestionState({ solutionText: value })}
-                disabled={isLoading}
-              />
-            </div>
-
-            <QuestionOptions
-              options={questionState.options}
-              onOptionsChange={(options) => updateQuestionState({ options })}
-              isLoading={isLoading}
-            />
-
-            <div className="flex gap-2">
-              <Button type="submit" disabled={isLoading} className="flex-1">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Question"
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowManualForm(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
+          <ManualQuestionForm
+            questionState={questionState}
+            updateQuestionState={updateQuestionState}
+            isLoading={isLoading}
+            onSubmit={handleManualSubmit}
+            onCancel={() => setShowManualForm(false)}
+          />
         )}
 
         {generatedQuestions.length > 0 && (
           <div className="space-y-4">
             {generatedQuestions.map((question, index) => (
-              <Card key={index} className="p-4 space-y-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Question Text</Label>
-                    <CKEditorWrapper
-                      value={question.questionText}
-                      onChange={(value) => {
-                        const newQuestions = [...generatedQuestions];
-                        newQuestions[index] = { ...question, questionText: value };
-                        setGeneratedQuestions(newQuestions);
-                      }}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Reference Text (Optional)</Label>
-                    <CKEditorWrapper
-                      value={question.referenceText}
-                      onChange={(value) => {
-                        const newQuestions = [...generatedQuestions];
-                        newQuestions[index] = { ...question, referenceText: value };
-                        setGeneratedQuestions(newQuestions);
-                      }}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Solution Text (Optional)</Label>
-                    <CKEditorWrapper
-                      value={question.solutionText}
-                      onChange={(value) => {
-                        const newQuestions = [...generatedQuestions];
-                        newQuestions[index] = { ...question, solutionText: value };
-                        setGeneratedQuestions(newQuestions);
-                      }}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Options</Label>
-                    {question.options.map((option: any, optIndex: number) => (
-                      <div key={optIndex} className="flex gap-2">
-                        <div className="flex-1">
-                          <CKEditorWrapper
-                            value={option.text}
-                            onChange={(value) => {
-                              const newQuestions = [...generatedQuestions];
-                              const newOptions = [...question.options];
-                              newOptions[optIndex] = { ...option, text: value };
-                              newQuestions[index] = { ...question, options: newOptions };
-                              setGeneratedQuestions(newQuestions);
-                            }}
-                            disabled={isLoading}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant={option.isCorrect ? "default" : "outline"}
-                          onClick={() => {
-                            const newQuestions = [...generatedQuestions];
-                            const newOptions = question.options.map((opt: any, i: number) => ({
-                              ...opt,
-                              isCorrect: i === optIndex,
-                            }));
-                            newQuestions[index] = { ...question, options: newOptions };
-                            setGeneratedQuestions(newQuestions);
-                          }}
-                          disabled={isLoading}
-                        >
-                          Correct
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Card>
+              <GeneratedQuestionCard
+                key={index}
+                question={question}
+                index={index}
+                isLoading={isLoading}
+                onQuestionChange={(index, updatedQuestion) => {
+                  const newQuestions = [...generatedQuestions];
+                  newQuestions[index] = updatedQuestion;
+                  setGeneratedQuestions(newQuestions);
+                }}
+              />
             ))}
 
             <div className="flex gap-2">
