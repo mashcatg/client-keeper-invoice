@@ -17,7 +17,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
   const [isLoading, setIsLoading] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
   const [showManualForm, setShowManualForm] = useState(false);
-  const [selectedQuestions, setSelectedQuestions] = useState<number[]>([]);
   const supabase = useSupabaseClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -104,8 +103,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         options: question.options.map((opt: any) => ({
           option_text: opt.text,
           is_correct: opt.isCorrect
-        })),
-        linkedQuestionId: question.linkedTo
+        }))
       }));
 
       for (const question of questionsToSave) {
@@ -135,30 +133,6 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const toggleQuestionSelection = (index: number) => {
-    if (selectedQuestions.includes(index)) {
-      setSelectedQuestions(prev => prev.filter(i => i !== index));
-      setGeneratedQuestions(prev => prev.map((q, i) => 
-        i === index ? { ...q, linkedTo: null } : q
-      ));
-    } else if (selectedQuestions.length < 2) {
-      setSelectedQuestions(prev => [...prev, index]);
-      if (selectedQuestions.length === 1) {
-        // Link the questions together
-        const firstIndex = selectedQuestions[0];
-        setGeneratedQuestions(prev => prev.map((q, i) => 
-          i === index || i === firstIndex ? { ...q, linkedTo: true } : q
-        ));
-      }
-    }
-  };
-
-  const updateGeneratedQuestion = (index: number, updates: any) => {
-    setGeneratedQuestions(prev => 
-      prev.map((q, i) => i === index ? { ...q, ...updates } : q)
-    );
   };
 
   return (
@@ -245,23 +219,16 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
           <div className="space-y-4">
             {generatedQuestions.map((question, index) => (
               <Card key={index} className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Question {index + 1}</h3>
-                  <Button
-                    variant={selectedQuestions.includes(index) ? "default" : "outline"}
-                    onClick={() => toggleQuestionSelection(index)}
-                    disabled={selectedQuestions.length === 2 && !selectedQuestions.includes(index)}
-                  >
-                    {selectedQuestions.includes(index) ? "Selected" : "Select to Link"}
-                  </Button>
-                </div>
-
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Question Text</Label>
                     <CKEditorWrapper
                       value={question.questionText}
-                      onChange={(value) => updateGeneratedQuestion(index, { questionText: value })}
+                      onChange={(value) => {
+                        const newQuestions = [...generatedQuestions];
+                        newQuestions[index] = { ...question, questionText: value };
+                        setGeneratedQuestions(newQuestions);
+                      }}
                       disabled={isLoading}
                     />
                   </div>
@@ -270,7 +237,11 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
                     <Label>Reference Text (Optional)</Label>
                     <CKEditorWrapper
                       value={question.referenceText}
-                      onChange={(value) => updateGeneratedQuestion(index, { referenceText: value })}
+                      onChange={(value) => {
+                        const newQuestions = [...generatedQuestions];
+                        newQuestions[index] = { ...question, referenceText: value };
+                        setGeneratedQuestions(newQuestions);
+                      }}
                       disabled={isLoading}
                     />
                   </div>
@@ -279,7 +250,11 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
                     <Label>Solution Text (Optional)</Label>
                     <CKEditorWrapper
                       value={question.solutionText}
-                      onChange={(value) => updateGeneratedQuestion(index, { solutionText: value })}
+                      onChange={(value) => {
+                        const newQuestions = [...generatedQuestions];
+                        newQuestions[index] = { ...question, solutionText: value };
+                        setGeneratedQuestions(newQuestions);
+                      }}
                       disabled={isLoading}
                     />
                   </div>
@@ -292,9 +267,11 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
                           <CKEditorWrapper
                             value={option.text}
                             onChange={(value) => {
+                              const newQuestions = [...generatedQuestions];
                               const newOptions = [...question.options];
                               newOptions[optIndex] = { ...option, text: value };
-                              updateGeneratedQuestion(index, { options: newOptions });
+                              newQuestions[index] = { ...question, options: newOptions };
+                              setGeneratedQuestions(newQuestions);
                             }}
                             disabled={isLoading}
                           />
@@ -303,11 +280,13 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
                           type="button"
                           variant={option.isCorrect ? "default" : "outline"}
                           onClick={() => {
+                            const newQuestions = [...generatedQuestions];
                             const newOptions = question.options.map((opt: any, i: number) => ({
                               ...opt,
                               isCorrect: i === optIndex,
                             }));
-                            updateGeneratedQuestion(index, { options: newOptions });
+                            newQuestions[index] = { ...question, options: newOptions };
+                            setGeneratedQuestions(newQuestions);
                           }}
                           disabled={isLoading}
                         >

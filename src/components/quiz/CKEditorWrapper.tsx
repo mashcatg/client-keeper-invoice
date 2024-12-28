@@ -31,7 +31,7 @@ const CKEditorWrapper = ({
 
   if (!mounted) {
     return (
-      <div className="min-h-[100px] border rounded-md bg-gray-50">
+      <div className="min-h-[100px] border rounded-md bg-gray-50 p-4">
         Loading editor...
       </div>
     );
@@ -44,6 +44,12 @@ const CKEditorWrapper = ({
         data={value}
         onReady={(editor) => {
           editorRef.current = editor;
+          // Set initial disabled state
+          if (disabled) {
+            editor.enableReadOnlyMode('disabled');
+          } else {
+            editor.disableReadOnlyMode('disabled');
+          }
         }}
         onChange={(event, editor) => {
           const data = editor.getData();

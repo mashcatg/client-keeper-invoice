@@ -3,6 +3,7 @@ import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
-import { Trash2 } from "lucide-react";
+import { Trash2, Link } from "lucide-react";
 
 interface Option {
   id: string;
@@ -41,6 +42,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
 
   const handleDelete = async (questionId: string) => {
     const { error } = await supabase
@@ -63,6 +65,36 @@ const QuestionList = ({ questions }: QuestionListProps) => {
     setQuestionToDelete(null);
   };
 
+  const handleLinkQuestions = async () => {
+    if (selectedQuestions.length < 2) {
+      toast({
+        title: "Please select at least 2 questions to link",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const stamp = `Linked Group ${new Date().toISOString()}`;
+    const { error } = await supabase
+      .from("questions")
+      .update({ stamp })
+      .in("id", selectedQuestions);
+
+    if (error) {
+      toast({
+        title: "Failed to link questions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["questions"] });
+    toast({
+      title: "Questions linked successfully",
+    });
+    setSelectedQuestions([]);
+  };
+
   if (questions.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -83,17 +115,39 @@ const QuestionList = ({ questions }: QuestionListProps) => {
 
   return (
     <div className="space-y-6">
+      {selectedQuestions.length > 0 && (
+        <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+          <span>{selectedQuestions.length} questions selected</span>
+          <Button onClick={handleLinkQuestions}>
+            <Link className="h-4 w-4 mr-2" />
+            Link Questions
+          </Button>
+        </div>
+      )}
+      
       {Object.entries(groupedQuestions).map(([stamp, questions]) => (
         <div key={stamp} className="space-y-4">
           <h3 className="text-lg font-semibold">{stamp}</h3>
           <div className="space-y-4">
             {questions.map((question) => (
               <Card key={question.id} className="p-4 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div 
-                    className="flex-1"
-                    dangerouslySetInnerHTML={{ __html: question.question_text }}
-                  />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <Checkbox
+                      checked={selectedQuestions.includes(question.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedQuestions([...selectedQuestions, question.id]);
+                        } else {
+                          setSelectedQuestions(selectedQuestions.filter(id => id !== question.id));
+                        }
+                      }}
+                    />
+                    <div 
+                      className="flex-1"
+                      dangerouslySetInnerHTML={{ __html: question.question_text }}
+                    />
+                  </div>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
