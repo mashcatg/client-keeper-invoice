@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { QuestionOption } from "./types";
-import RichTextEditor from "./RichTextEditor";
+import CKEditorWrapper from "./CKEditorWrapper";
 
 interface QuestionOptionsProps {
   options: QuestionOption[];
@@ -20,7 +20,7 @@ export const QuestionOptions = ({
       {options.map((option, index) => (
         <div key={index} className="flex gap-2">
           <div className="flex-1">
-            <RichTextEditor
+            <CKEditorWrapper
               value={option.option_text}
               onChange={(value) =>
                 onOptionsChange(

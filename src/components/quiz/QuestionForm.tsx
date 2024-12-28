@@ -10,13 +10,13 @@ import { QuestionFormProps } from "./types";
 import { useQuestionFormState } from "./useQuestionFormState";
 import { handleQuestionSubmit } from "./questionFormHandlers";
 import { QuestionOptions } from "./QuestionOptions";
-import RichTextEditor from "./RichTextEditor";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import CKEditorWrapper from "./CKEditorWrapper";
 
 const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [selectedQuestions, setSelectedQuestions] = useState<number[]>([]);
   const supabase = useSupabaseClient();
   const { toast } = useToast();
   const { questionState, updateQuestionState, resetForm } = useQuestionFormState();
@@ -24,6 +24,12 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Clear previous data
+    setGeneratedQuestions([]);
+    setSelectedQuestions([]);
+    setShowManualForm(false);
+    resetForm();
 
     setIsLoading(true);
     try {
@@ -52,6 +58,8 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         ...q,
         referenceText: q.referenceText || '',
         solutionText: q.solutionText || '',
+        isSelected: false,
+        linkedTo: null
       })));
 
     } catch (error) {
@@ -88,17 +96,20 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
   const handleSaveAll = async () => {
     setIsLoading(true);
     try {
-      for (const question of generatedQuestions) {
+      const questionsToSave = generatedQuestions.map(question => ({
+        questionText: question.questionText,
+        referenceText: question.referenceText,
+        solutionText: question.solutionText,
+        options: question.options.map((opt: any) => ({
+          option_text: opt.text,
+          is_correct: opt.isCorrect
+        })),
+        linkedQuestionId: question.linkedTo
+      }));
+
+      for (const question of questionsToSave) {
         await handleQuestionSubmit({
-          questionState: {
-            questionText: question.questionText,
-            referenceText: question.referenceText,
-            solutionText: question.solutionText,
-            options: question.options.map((opt: any) => ({
-              option_text: opt.text,
-              is_correct: opt.isCorrect
-            }))
-          },
+          questionState: question,
           quizId,
           supabase,
           toast,
@@ -106,7 +117,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
       }
 
       toast({
-        title: `${generatedQuestions.length} questions saved successfully`,
+        title: `${questionsToSave.length} questions saved successfully`,
       });
       
       setGeneratedQuestions([]);
@@ -121,6 +132,24 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const toggleQuestionSelection = (index: number) => {
+    if (selectedQuestions.includes(index)) {
+      setSelectedQuestions(prev => prev.filter(i => i !== index));
+      setGeneratedQuestions(prev => prev.map((q, i) => 
+        i === index ? { ...q, linkedTo: null } : q
+      ));
+    } else if (selectedQuestions.length < 2) {
+      setSelectedQuestions(prev => [...prev, index]);
+      if (selectedQuestions.length === 1) {
+        // Link the questions together
+        const firstIndex = selectedQuestions[0];
+        setGeneratedQuestions(prev => prev.map((q, i) => 
+          i === index || i === firstIndex ? { ...q, linkedTo: true } : q
+        ));
+      }
     }
   };
 
@@ -156,7 +185,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
           <form onSubmit={handleManualSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Question Text</Label>
-              <RichTextEditor
+              <CKEditorWrapper
                 value={questionState.questionText}
                 onChange={(value) => updateQuestionState({ questionText: value })}
                 disabled={isLoading}
@@ -165,7 +194,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
             <div className="space-y-2">
               <Label>Reference Text (Optional)</Label>
-              <RichTextEditor
+              <CKEditorWrapper
                 value={questionState.referenceText}
                 onChange={(value) => updateQuestionState({ referenceText: value })}
                 disabled={isLoading}
@@ -174,7 +203,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
 
             <div className="space-y-2">
               <Label>Solution Text (Optional)</Label>
-              <RichTextEditor
+              <CKEditorWrapper
                 value={questionState.solutionText}
                 onChange={(value) => updateQuestionState({ solutionText: value })}
                 disabled={isLoading}
@@ -210,77 +239,83 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
         )}
 
         {generatedQuestions.length > 0 && (
-          <>
-            <Accordion type="single" collapsible className="w-full space-y-4">
-              {generatedQuestions.map((question, index) => (
-                <AccordionItem key={index} value={`question-${index}`}>
-                  <AccordionTrigger>Question {index + 1}</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-4">
-                      <div className="space-y-2">
-                        <Label>Question Text</Label>
-                        <RichTextEditor
-                          value={question.questionText}
-                          onChange={(value) => updateGeneratedQuestion(index, { questionText: value })}
-                          disabled={isLoading}
-                        />
-                      </div>
+          <div className="space-y-4">
+            {generatedQuestions.map((question, index) => (
+              <Card key={index} className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Question {index + 1}</h3>
+                  <Button
+                    variant={selectedQuestions.includes(index) ? "default" : "outline"}
+                    onClick={() => toggleQuestionSelection(index)}
+                    disabled={selectedQuestions.length === 2 && !selectedQuestions.includes(index)}
+                  >
+                    {selectedQuestions.includes(index) ? "Selected" : "Select to Link"}
+                  </Button>
+                </div>
 
-                      <div className="space-y-2">
-                        <Label>Reference Text (Optional)</Label>
-                        <RichTextEditor
-                          value={question.referenceText}
-                          onChange={(value) => updateGeneratedQuestion(index, { referenceText: value })}
-                          disabled={isLoading}
-                        />
-                      </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Question Text</Label>
+                    <CKEditorWrapper
+                      value={question.questionText}
+                      onChange={(value) => updateGeneratedQuestion(index, { questionText: value })}
+                      disabled={isLoading}
+                    />
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label>Solution Text (Optional)</Label>
-                        <RichTextEditor
-                          value={question.solutionText}
-                          onChange={(value) => updateGeneratedQuestion(index, { solutionText: value })}
-                          disabled={isLoading}
-                        />
-                      </div>
+                  <div className="space-y-2">
+                    <Label>Reference Text (Optional)</Label>
+                    <CKEditorWrapper
+                      value={question.referenceText}
+                      onChange={(value) => updateGeneratedQuestion(index, { referenceText: value })}
+                      disabled={isLoading}
+                    />
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label>Options</Label>
-                        {question.options.map((option: any, optIndex: number) => (
-                          <div key={optIndex} className="flex gap-2">
-                            <div className="flex-1">
-                              <RichTextEditor
-                                value={option.text}
-                                onChange={(value) => {
-                                  const newOptions = [...question.options];
-                                  newOptions[optIndex] = { ...option, text: value };
-                                  updateGeneratedQuestion(index, { options: newOptions });
-                                }}
-                                disabled={isLoading}
-                              />
-                            </div>
-                            <Button
-                              type="button"
-                              variant={option.isCorrect ? "default" : "outline"}
-                              onClick={() => {
-                                const newOptions = question.options.map((opt: any, i: number) => ({
-                                  ...opt,
-                                  isCorrect: i === optIndex,
-                                }));
-                                updateGeneratedQuestion(index, { options: newOptions });
-                              }}
-                              disabled={isLoading}
-                            >
-                              Correct
-                            </Button>
-                          </div>
-                        ))}
+                  <div className="space-y-2">
+                    <Label>Solution Text (Optional)</Label>
+                    <CKEditorWrapper
+                      value={question.solutionText}
+                      onChange={(value) => updateGeneratedQuestion(index, { solutionText: value })}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Options</Label>
+                    {question.options.map((option: any, optIndex: number) => (
+                      <div key={optIndex} className="flex gap-2">
+                        <div className="flex-1">
+                          <CKEditorWrapper
+                            value={option.text}
+                            onChange={(value) => {
+                              const newOptions = [...question.options];
+                              newOptions[optIndex] = { ...option, text: value };
+                              updateGeneratedQuestion(index, { options: newOptions });
+                            }}
+                            disabled={isLoading}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant={option.isCorrect ? "default" : "outline"}
+                          onClick={() => {
+                            const newOptions = question.options.map((opt: any, i: number) => ({
+                              ...opt,
+                              isCorrect: i === optIndex,
+                            }));
+                            updateGeneratedQuestion(index, { options: newOptions });
+                          }}
+                          disabled={isLoading}
+                        >
+                          Correct
+                        </Button>
                       </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            ))}
 
             <div className="flex gap-2">
               <Button 
@@ -303,7 +338,7 @@ const QuestionForm = ({ quizId, onQuestionCreated, onClose }: QuestionFormProps)
                 </Button>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </Card>
