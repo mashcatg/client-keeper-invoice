@@ -17,7 +17,7 @@ interface ChatBotProps {
   quizId: string;
 }
 
-const ChatBot = ({ quizId }: ChatBotProps) => {
+const EnnoQuiz = ({ quizId }: ChatBotProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [message, setMessage] = useState('');
@@ -26,6 +26,35 @@ const ChatBot = ({ quizId }: ChatBotProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = useSupabaseClient();
   const { toast } = useToast();
+
+  // Load previous conversations
+  useEffect(() => {
+    const loadPreviousMessages = async () => {
+      try {
+        const { data: storedMessages, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('quiz_id', quizId)
+          .order('timestamp', { ascending: true });
+
+        if (error) throw error;
+
+        if (storedMessages) {
+          setMessages(storedMessages.map(msg => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+            timestamp: new Date(msg.timestamp)
+          })));
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    };
+
+    if (quizId) {
+      loadPreviousMessages();
+    }
+  }, [quizId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -39,6 +68,18 @@ const ChatBot = ({ quizId }: ChatBotProps) => {
       content: message,
       timestamp: new Date(),
     };
+
+    // Save user message to Supabase
+    try {
+      await supabase.from('chat_messages').insert({
+        quiz_id: quizId,
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
 
     setMessages(prev => [...prev, newMessage]);
     setMessage('');
@@ -58,11 +99,21 @@ const ChatBot = ({ quizId }: ChatBotProps) => {
 
       if (error) throw error;
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
+      const assistantMessage = {
+        role: 'assistant' as const,
         content: data.response,
         timestamp: new Date(),
-      }]);
+      };
+
+      // Save assistant message to Supabase
+      await supabase.from('chat_messages').insert({
+        quiz_id: quizId,
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date().toISOString()
+      });
+
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -88,7 +139,7 @@ const ChatBot = ({ quizId }: ChatBotProps) => {
               <div className="p-4 border-b flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">Quiz Assistant</span>
+                  <span className="font-semibold">EnnoQuiz Assistant</span>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -189,4 +240,4 @@ const ChatBot = ({ quizId }: ChatBotProps) => {
   );
 };
 
-export default ChatBot;
+export default EnnoQuiz;
