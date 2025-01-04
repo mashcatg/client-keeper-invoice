@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
-import { Trash2, Link } from "lucide-react";
+import { Trash2, Link, Stamp } from "lucide-react";
+import QuestionFilter from "./QuestionFilter";
 
 interface Option {
   id: string;
@@ -43,6 +45,29 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   const { toast } = useToast();
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [referenceFilter, setReferenceFilter] = useState("");
+  const [stampName, setStampName] = useState("");
+  const [showStampInput, setShowStampInput] = useState(false);
+
+  // Extract unique references
+  const references = useMemo(() => {
+    const refs = questions
+      .map((q) => q.reference_text)
+      .filter((ref): ref is string => ref !== null && ref !== "");
+    return Array.from(new Set(refs));
+  }, [questions]);
+
+  // Filter questions
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      const matchesSearch = question.question_text
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesReference = !referenceFilter || question.reference_text === referenceFilter;
+      return matchesSearch && matchesReference;
+    });
+  }, [questions, searchQuery, referenceFilter]);
 
   const handleDelete = async (questionId: string) => {
     const { error } = await supabase
@@ -65,24 +90,23 @@ const QuestionList = ({ questions }: QuestionListProps) => {
     setQuestionToDelete(null);
   };
 
-  const handleLinkQuestions = async () => {
-    if (selectedQuestions.length < 2) {
+  const handleCreateStamp = async () => {
+    if (!stampName.trim() || selectedQuestions.length === 0) {
       toast({
-        title: "Please select at least 2 questions to link",
+        title: "Please enter a stamp name and select questions",
         variant: "destructive",
       });
       return;
     }
 
-    const stamp = `Linked Group ${new Date().toISOString()}`;
     const { error } = await supabase
       .from("questions")
-      .update({ stamp })
+      .update({ stamp: stampName })
       .in("id", selectedQuestions);
 
     if (error) {
       toast({
-        title: "Failed to link questions",
+        title: "Failed to create stamp",
         variant: "destructive",
       });
       return;
@@ -90,9 +114,11 @@ const QuestionList = ({ questions }: QuestionListProps) => {
 
     queryClient.invalidateQueries({ queryKey: ["questions"] });
     toast({
-      title: "Questions linked successfully",
+      title: "Stamp created successfully",
     });
     setSelectedQuestions([]);
+    setStampName("");
+    setShowStampInput(false);
   };
 
   if (questions.length === 0) {
@@ -104,7 +130,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   }
 
   // Group questions by stamp
-  const groupedQuestions = questions.reduce((acc, question) => {
+  const groupedQuestions = filteredQuestions.reduce((acc, question) => {
     const stamp = question.stamp || "Ungrouped";
     if (!acc[stamp]) {
       acc[stamp] = [];
@@ -115,13 +141,40 @@ const QuestionList = ({ questions }: QuestionListProps) => {
 
   return (
     <div className="space-y-6">
+      <QuestionFilter
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        referenceFilter={referenceFilter}
+        onReferenceFilterChange={setReferenceFilter}
+        references={references}
+      />
+
       {selectedQuestions.length > 0 && (
         <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
           <span>{selectedQuestions.length} questions selected</span>
-          <Button onClick={handleLinkQuestions}>
-            <Link className="h-4 w-4 mr-2" />
-            Link Questions
-          </Button>
+          <div className="flex gap-2">
+            {showStampInput ? (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter stamp name"
+                  value={stampName}
+                  onChange={(e) => setStampName(e.target.value)}
+                  className="w-48"
+                />
+                <Button onClick={handleCreateStamp}>
+                  Create Stamp
+                </Button>
+                <Button variant="outline" onClick={() => setShowStampInput(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setShowStampInput(true)}>
+                <Stamp className="h-4 w-4 mr-2" />
+                Create Stamp
+              </Button>
+            )}
+          </div>
         </div>
       )}
       

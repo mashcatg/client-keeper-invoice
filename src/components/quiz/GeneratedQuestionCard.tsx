@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import CKEditorWrapper from "./CKEditorWrapper";
+import CustomRichTextEditor from "./CustomRichTextEditor";
 
 interface GeneratedQuestionCardProps {
   question: any;
@@ -21,7 +21,7 @@ const GeneratedQuestionCard = ({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Question Text</Label>
-          <CKEditorWrapper
+          <CustomRichTextEditor
             value={question.questionText}
             onChange={(value) => {
               onQuestionChange(index, { ...question, questionText: value });
@@ -32,7 +32,7 @@ const GeneratedQuestionCard = ({
 
         <div className="space-y-2">
           <Label>Reference Text (Optional)</Label>
-          <CKEditorWrapper
+          <CustomRichTextEditor
             value={question.referenceText}
             onChange={(value) => {
               onQuestionChange(index, { ...question, referenceText: value });
@@ -43,7 +43,7 @@ const GeneratedQuestionCard = ({
 
         <div className="space-y-2">
           <Label>Solution Text (Optional)</Label>
-          <CKEditorWrapper
+          <CustomRichTextEditor
             value={question.solutionText}
             onChange={(value) => {
               onQuestionChange(index, { ...question, solutionText: value });
@@ -57,7 +57,7 @@ const GeneratedQuestionCard = ({
           {question.options.map((option: any, optIndex: number) => (
             <div key={optIndex} className="flex gap-2">
               <div className="flex-1">
-                <CKEditorWrapper
+                <CustomRichTextEditor
                   value={option.text}
                   onChange={(value) => {
                     const newOptions = [...question.options];
