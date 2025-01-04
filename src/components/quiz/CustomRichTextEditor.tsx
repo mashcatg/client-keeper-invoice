@@ -35,7 +35,11 @@ const CustomRichTextEditor = ({ value, onChange, disabled }: CustomRichTextEdito
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image,
+      Image.configure({
+        HTMLAttributes: {
+          class: 'max-w-full h-auto',
+        },
+      }),
       Table.configure({
         resizable: true,
       }),
@@ -73,7 +77,7 @@ const CustomRichTextEditor = ({ value, onChange, disabled }: CustomRichTextEdito
         .from('question_images')
         .getPublicUrl(filePath);
 
-      editor?.chain().focus().setImage({ src: publicUrl }).run();
+      editor?.chain().focus().insertContent(`<img src="${publicUrl}" alt="Uploaded image" />`).run();
     } catch (error) {
       console.error('Error uploading image:', error);
     }
