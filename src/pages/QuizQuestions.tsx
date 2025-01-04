@@ -1,20 +1,17 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Plus, Image } from "lucide-react";
 import QuestionForm from "@/components/quiz/QuestionForm";
 import QuestionList from "@/components/quiz/QuestionList";
+import ChatBot from "@/components/quiz/ChatBot";
 
 const QuizQuestions = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const supabase = useSupabaseClient();
-  const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
 
   const { data: questions, isLoading } = useQuery({
@@ -80,6 +77,8 @@ const QuizQuestions = () => {
           <QuestionList questions={questions || []} />
         </div>
       </main>
+
+      <ChatBot quizId={id!} />
     </div>
   );
 };
