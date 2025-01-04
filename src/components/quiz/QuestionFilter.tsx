@@ -45,7 +45,7 @@ const QuestionFilter = ({
               <SelectValue placeholder="All References" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All References</SelectItem>
+              <SelectItem value="all">All References</SelectItem>
               {references.map((ref) => (
                 <SelectItem key={ref} value={ref}>
                   {ref}
