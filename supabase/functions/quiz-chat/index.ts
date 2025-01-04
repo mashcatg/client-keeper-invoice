@@ -38,36 +38,40 @@ serve(async (req) => {
       correctAnswer: q.options.find((o: any) => o.is_correct)?.option_text,
     }))
 
-    const response = await fetch('https://api.gemini.ai/v1/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('GEMINI_API_KEY')}`,
+        'x-goog-api-key': Deno.env.get('GEMINI_API_KEY') ?? '',
       },
       body: JSON.stringify({
-        model: 'gemini-pro',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a helpful AI tutor that assists with questions from a quiz. You have access to these questions and their answers: ${JSON.stringify(questionsContext)}. Be concise, use emojis, and maintain a friendly tone. Use the chat history to provide context-aware responses.`
-          },
-          ...history,
+        contents: [
           {
             role: 'user',
-            content: message
+            parts: [{ text: `You are a helpful AI tutor that assists with questions from a quiz. You have access to these questions and their answers: ${JSON.stringify(questionsContext)}. Be concise, use emojis, and maintain a friendly tone. Use the chat history to provide context-aware responses. The user asks: ${message}` }]
           }
         ],
-        temperature: 0.7,
-        max_tokens: 150,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 150,
+        },
       }),
     })
 
+    if (!response.ok) {
+      console.error('Gemini API error:', await response.text())
+      throw new Error('Failed to get response from Gemini API')
+    }
+
     const data = await response.json()
+    const generatedText = data.candidates[0].content.parts[0].text
+
     return new Response(
-      JSON.stringify({ response: data.choices[0].message.content }),
+      JSON.stringify({ response: generatedText }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('Error in quiz-chat function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
