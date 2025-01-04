@@ -8,11 +8,12 @@ import TableHeader from '@tiptap/extension-table-header';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import TextAlign from '@tiptap/extension-text-align';
+import Underline from '@tiptap/extension-underline';
 import { Button } from "@/components/ui/button";
 import { 
   Bold, 
   Italic, 
-  Underline, 
+  Underline as UnderlineIcon, 
   Superscript as SuperscriptIcon, 
   Subscript as SubscriptIcon,
   Table as TableIcon,
@@ -48,6 +49,7 @@ const CustomRichTextEditor = ({ value, onChange, disabled }: CustomRichTextEdito
       TableHeader,
       Superscript,
       Subscript,
+      Underline,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
@@ -113,7 +115,7 @@ const CustomRichTextEditor = ({ value, onChange, disabled }: CustomRichTextEdito
           disabled={disabled}
           className={editor.isActive('underline') ? 'bg-muted' : ''}
         >
-          <Underline className="h-4 w-4" />
+          <UnderlineIcon className="h-4 w-4" />
         </Button>
         <Button
           size="sm"
