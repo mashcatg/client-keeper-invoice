@@ -10,21 +10,26 @@ const Index = () => {
         <header className="container py-4">
           <nav className="flex items-center justify-between">
             <div className="text-xl font-semibold text-primary">QuizMaster</div>
-            <Button variant="ghost" asChild>
-              <Link to="/login">Sign in</Link>
-            </Button>
+            <div className="space-x-4">
+              <Button variant="ghost" asChild>
+                <Link to="/login">Sign in</Link>
+              </Button>
+              <Button variant="default" asChild>
+                <Link to="/signup">Sign up</Link>
+              </Button>
+            </div>
           </nav>
         </header>
       </div>
       
       <main className="container py-8">
-        <div className="max-w-4xl mx-auto space-y-8 animate-in">
+        <div className="max-w-4xl mx-auto space-y-8">
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold">Create Engaging Quizzes with Ease</h1>
-            <p className="text-lg text-gray-600">
-              Design, share, and track interactive quizzes for education and assessment
+            <h1 className="text-4xl font-bold tracking-tight">Create Engaging Quizzes with Ease</h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Design, share, and track interactive quizzes for education and assessment. Perfect for teachers, trainers, and education professionals.
             </p>
-            <Button size="lg" className="bg-primary hover:bg-primary-600" asChild>
+            <Button size="lg" className="bg-primary hover:bg-primary/90" asChild>
               <Link to="/signup">
                 Get Started <ChevronRight className="ml-2 h-4 w-4" />
               </Link>
@@ -32,33 +37,39 @@ const Index = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 pt-8">
-            <Card>
+            <Card className="border-2">
               <CardHeader className="space-y-1">
                 <Brain className="h-8 w-8 text-primary" />
                 <CardTitle className="text-xl">Smart Question Bank</CardTitle>
               </CardHeader>
               <CardContent>
-                Create and manage questions with AI assistance, add references, and solutions
+                <p className="text-gray-600">
+                  Create and manage questions with AI assistance, add references, and solutions for comprehensive learning
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-2">
               <CardHeader className="space-y-1">
                 <Clock className="h-8 w-8 text-primary" />
                 <CardTitle className="text-xl">Flexible Configuration</CardTitle>
               </CardHeader>
               <CardContent>
-                Set time limits, scoring rules, and customize quiz settings to your needs
+                <p className="text-gray-600">
+                  Set time limits, scoring rules, and customize quiz settings to match your specific teaching needs
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-2">
               <CardHeader className="space-y-1">
                 <Users className="h-8 w-8 text-primary" />
                 <CardTitle className="text-xl">Track Performance</CardTitle>
               </CardHeader>
               <CardContent>
-                Monitor quiz responses and analyze participant performance in real-time
+                <p className="text-gray-600">
+                  Monitor quiz responses and analyze participant performance with detailed insights
+                </p>
               </CardContent>
             </Card>
           </div>
