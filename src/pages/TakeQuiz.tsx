@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { TakeQuizInterface } from "@/components/quiz/TakeQuizInterface";
 
 const TakeQuiz = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,7 @@ const TakeQuiz = () => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [started, setStarted] = useState(false);
+  const [responseId, setResponseId] = useState<string | null>(null);
 
   const { data: quiz, isLoading: quizLoading } = useQuery({
     queryKey: ["public-quiz", id],
@@ -47,6 +49,24 @@ const TakeQuiz = () => {
     }
 
     try {
+      // Check if multiple attempts are allowed
+      if (!quiz.multiple_attempts) {
+        const { data: existingResponse } = await supabase
+          .from("responses")
+          .select()
+          .eq("quiz_id", id)
+          .eq("user_email", email)
+          .maybeSingle();
+
+        if (existingResponse) {
+          toast({
+            title: "Multiple attempts are not allowed for this quiz",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Create anonymous response
       const { data: response, error } = await supabase
         .from("responses")
@@ -54,13 +74,14 @@ const TakeQuiz = () => {
           quiz_id: id!,
           user_email: email,
           user_name: name,
-          user_id: crypto.randomUUID(), // Generate a random UUID for anonymous users
+          user_id: crypto.randomUUID(),
         })
         .select()
         .single();
 
       if (error) throw error;
 
+      setResponseId(response.id);
       setStarted(true);
       toast({
         title: "Quiz started successfully",
@@ -117,10 +138,11 @@ const TakeQuiz = () => {
   }
 
   return (
-    <div>
-      {/* Quiz taking interface will be implemented here */}
-      Quiz Started
-    </div>
+    <TakeQuizInterface
+      quiz={quiz}
+      questions={quiz.questions}
+      responseId={responseId!}
+    />
   );
 };
 

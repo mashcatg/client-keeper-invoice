@@ -112,11 +112,14 @@ export type Database = {
       quizzes: {
         Row: {
           created_at: string
+          email_enabled: boolean | null
           id: string
           is_available: boolean | null
           marks_per_question: number | null
           multiple_attempts: boolean | null
           negative_marks: number | null
+          prevent_inspection: boolean | null
+          prevent_tab_switch: boolean | null
           questions_per_quiz: number | null
           sharing_link: string | null
           shuffle_questions: boolean | null
@@ -127,11 +130,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email_enabled?: boolean | null
           id?: string
           is_available?: boolean | null
           marks_per_question?: number | null
           multiple_attempts?: boolean | null
           negative_marks?: number | null
+          prevent_inspection?: boolean | null
+          prevent_tab_switch?: boolean | null
           questions_per_quiz?: number | null
           sharing_link?: string | null
           shuffle_questions?: boolean | null
@@ -142,11 +148,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email_enabled?: boolean | null
           id?: string
           is_available?: boolean | null
           marks_per_question?: number | null
           multiple_attempts?: boolean | null
           negative_marks?: number | null
+          prevent_inspection?: boolean | null
+          prevent_tab_switch?: boolean | null
           questions_per_quiz?: number | null
           sharing_link?: string | null
           shuffle_questions?: boolean | null
@@ -213,10 +222,12 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          email_sent: boolean | null
           id: string
           quiz_id: string
           score: number | null
           started_at: string
+          tab_switches: number | null
           user_email: string | null
           user_id: string
           user_name: string | null
@@ -224,10 +235,12 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          email_sent?: boolean | null
           id?: string
           quiz_id: string
           score?: number | null
           started_at?: string
+          tab_switches?: number | null
           user_email?: string | null
           user_id: string
           user_name?: string | null
@@ -235,10 +248,12 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          email_sent?: boolean | null
           id?: string
           quiz_id?: string
           score?: number | null
           started_at?: string
+          tab_switches?: number | null
           user_email?: string | null
           user_id?: string
           user_name?: string | null
