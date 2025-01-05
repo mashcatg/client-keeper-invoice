@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
-import { Trash2, Link, Stamp } from "lucide-react";
+import { Trash2, Brain, Volume2, VolumeX, Star } from "lucide-react";
 import QuestionFilter from "./QuestionFilter";
 import { QuestionControls } from "./QuestionControls";
 import CustomRichTextEditor from "./CustomRichTextEditor";
@@ -54,25 +54,71 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   const [stampName, setStampName] = useState("");
   const [showStampInput, setShowStampInput] = useState(false);
   const [editingSolution, setEditingSolution] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioInstance, setAudioInstance] = useState<SpeechSynthesisUtterance | null>(null);
 
-  // Extract unique references
-  const references = useMemo(() => {
-    const refs = questions
-      .map((q) => q.reference_text)
-      .filter((ref): ref is string => ref !== null && ref !== "");
-    return Array.from(new Set(refs));
-  }, [questions]);
+  const handleSolutionSave = async (questionId: string, solutionText: string) => {
+    const { error } = await supabase
+      .from('questions')
+      .update({ solution_text: solutionText })
+      .eq('id', questionId);
 
-  // Filter questions
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      const matchesSearch = question.question_text
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      const matchesReference = !referenceFilter || question.reference_text === referenceFilter;
-      return matchesSearch && matchesReference;
+    if (error) {
+      toast({
+        title: "Failed to save solution",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["questions"] });
+    setEditingSolution(null);
+    toast({
+      title: "Solution saved successfully",
     });
-  }, [questions, searchQuery, referenceFilter]);
+  };
+
+  const handleBulkAnalyze = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('analyze-questions', {
+        body: { questionIds: selectedQuestions }
+      });
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
+      toast({
+        title: "Questions analyzed successfully",
+      });
+    } catch (error) {
+      console.error('Error analyzing questions:', error);
+      toast({
+        title: "Failed to analyze questions",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleSpeech = (text: string, lang: string = 'en-US') => {
+    if (isPlaying && audioInstance) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setAudioInstance(null);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.lang = lang;
+    utterance.onend = () => {
+      setIsPlaying(false);
+      setAudioInstance(null);
+    };
+
+    setAudioInstance(utterance);
+    setIsPlaying(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleDelete = async (questionId: string) => {
     const { error } = await supabase
@@ -135,7 +181,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   }
 
   // Group questions by stamp
-  const groupedQuestions = filteredQuestions.reduce((acc, question) => {
+  const groupedQuestions = questions.reduce((acc, question) => {
     const stamp = question.stamp || "Ungrouped";
     if (!acc[stamp]) {
       acc[stamp] = [];
@@ -146,12 +192,39 @@ const QuestionList = ({ questions }: QuestionListProps) => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
+        <div className="flex gap-2">
+          <Button
+            onClick={handleBulkAnalyze}
+            disabled={selectedQuestions.length === 0}
+          >
+            <Brain className="h-4 w-4 mr-2" />
+            Analyze Selected Questions
+          </Button>
+          <Button
+            onClick={() => {
+              const text = questions.map(q => 
+                `Question: ${q.question_text}\nOptions: ${q.options.map(o => o.option_text).join(', ')}`
+              ).join('\n\n');
+              toggleSpeech(text);
+            }}
+          >
+            {isPlaying ? (
+              <VolumeX className="h-4 w-4 mr-2" />
+            ) : (
+              <Volume2 className="h-4 w-4 mr-2" />
+            )}
+            {isPlaying ? 'Stop Reading' : 'Read Questions'}
+          </Button>
+        </div>
+      </div>
+
       <QuestionFilter
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         referenceFilter={referenceFilter}
         onReferenceFilterChange={setReferenceFilter}
-        references={references}
+        references={[]}
       />
 
       {selectedQuestions.length > 0 && (
@@ -175,7 +248,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
               </div>
             ) : (
               <Button onClick={() => setShowStampInput(true)}>
-                <Stamp className="h-4 w-4 mr-2" />
+                <Star className="h-4 w-4 mr-2" />
                 Create Stamp
               </Button>
             )}
@@ -201,42 +274,70 @@ const QuestionList = ({ questions }: QuestionListProps) => {
                         }
                       }}
                     />
-                    <div 
-                      className="flex-1"
-                      dangerouslySetInnerHTML={{ __html: question.question_text }}
-                    />
+                    <div>
+                      <div 
+                        className="flex-1"
+                        dangerouslySetInnerHTML={{ __html: question.question_text }}
+                      />
+                      {question.ai_importance_analysis && (
+                        <div className="flex items-center mt-2">
+                          {[1,2,3,4,5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-4 w-4 ${
+                                parseFloat(question.ai_importance_analysis!) >= star 
+                                  ? 'text-yellow-400 fill-current' 
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQuestionToDelete(question.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the
-                          question and all its options.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDelete(question.id)}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleSpeech(
+                        `${question.question_text}. Options: ${question.options.map(o => o.option_text).join('. ')}`,
+                        'en-US'
+                      )}
+                    >
+                      {isPlaying ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQuestionToDelete(question.id);
+                          }}
                         >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the
+                            question and all its options.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(question.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
 
                 <QuestionControls
