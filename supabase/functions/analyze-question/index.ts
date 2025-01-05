@@ -20,7 +20,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch question and its linked questions
     const { data: question, error: questionError } = await supabase
       .from('questions')
       .select(`
@@ -32,33 +31,13 @@ serve(async (req) => {
 
     if (questionError) throw questionError;
 
-    // Prepare prompt based on analysis type
     let prompt = '';
-    if (analysisType === 'importance') {
-      prompt = `Analyze the importance and educational value of this question:
+    if (analysisType === 'solution') {
+      prompt = `Provide a clear, step-by-step solution for this question without any extra text or explanations:
       Question: ${question.question_text}
-      Options: ${question.options.map((opt: any) => opt.option_text).join(', ')}
-      Reference: ${question.reference_text || 'None'}
-      
-      Provide a detailed analysis of:
-      1. The key concepts being tested
-      2. The difficulty level
-      3. The educational value
-      4. Suggestions for improvement`;
-    } else if (analysisType === 'solution') {
-      prompt = `Generate a detailed solution for this question:
-      Question: ${question.question_text}
-      Options: ${question.options.map((opt: any) => opt.option_text).join(', ')}
-      Reference: ${question.reference_text || 'None'}
-      
-      Provide:
-      1. Step-by-step solution process
-      2. Key concepts involved
-      3. Common mistakes to avoid
-      4. Additional tips for understanding`;
+      Options: ${question.options.map((opt: any) => opt.option_text).join(', ')}`;
     }
 
-    // Call Gemini API for analysis
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
       method: 'POST',
       headers: {
@@ -70,8 +49,8 @@ serve(async (req) => {
           parts: [{ text: prompt }]
         }],
         generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
+          temperature: 0.3,
+          maxOutputTokens: 500,
         },
       }),
     });
@@ -83,26 +62,12 @@ serve(async (req) => {
     const data = await response.json();
     const analysis = data.candidates[0].content.parts[0].text;
 
-    // Save the analysis
-    if (analysisType === 'importance') {
-      await supabase
-        .from('questions')
-        .update({ ai_importance_analysis: analysis })
-        .eq('id', questionId);
-    } else if (analysisType === 'solution') {
+    if (analysisType === 'solution') {
       await supabase
         .from('questions')
         .update({ ai_solution_steps: analysis })
         .eq('id', questionId);
     }
-
-    await supabase
-      .from('question_analysis')
-      .insert({
-        question_id: questionId,
-        analysis_type: analysisType,
-        content: analysis
-      });
 
     return new Response(
       JSON.stringify({ analysis }),

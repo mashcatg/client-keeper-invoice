@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import CustomRichTextEditor from "./CustomRichTextEditor";
+import { useState } from "react";
 
 interface GeneratedQuestionCardProps {
   question: any;
@@ -16,6 +17,12 @@ const GeneratedQuestionCard = ({
   isLoading,
   onQuestionChange,
 }: GeneratedQuestionCardProps) => {
+  const [editedSolution, setEditedSolution] = useState(question.solution_text || question.ai_solution_steps || '');
+
+  const handleSaveSolution = () => {
+    onQuestionChange(index, { ...question, solution_text: editedSolution });
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="space-y-4">
@@ -44,12 +51,16 @@ const GeneratedQuestionCard = ({
         <div className="space-y-2">
           <Label>Solution Text (Optional)</Label>
           <CustomRichTextEditor
-            value={question.solutionText}
-            onChange={(value) => {
-              onQuestionChange(index, { ...question, solutionText: value });
-            }}
+            value={editedSolution}
+            onChange={setEditedSolution}
             disabled={isLoading}
           />
+          <Button 
+            onClick={handleSaveSolution}
+            disabled={isLoading}
+          >
+            Save Solution
+          </Button>
         </div>
 
         <div className="space-y-2">
