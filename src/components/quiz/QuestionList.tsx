@@ -19,6 +19,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Trash2, Link, Stamp } from "lucide-react";
 import QuestionFilter from "./QuestionFilter";
+import { QuestionControls } from "./QuestionControls";
+import CustomRichTextEditor from "./CustomRichTextEditor";
 
 interface Option {
   id: string;
@@ -31,6 +33,8 @@ interface Question {
   question_text: string;
   reference_text: string | null;
   solution_text: string | null;
+  ai_importance_analysis: string | null;
+  ai_solution_steps: string | null;
   stamp: string | null;
   options: Option[];
 }
@@ -49,6 +53,7 @@ const QuestionList = ({ questions }: QuestionListProps) => {
   const [referenceFilter, setReferenceFilter] = useState("");
   const [stampName, setStampName] = useState("");
   const [showStampInput, setShowStampInput] = useState(false);
+  const [editingSolution, setEditingSolution] = useState<string | null>(null);
 
   // Extract unique references
   const references = useMemo(() => {
@@ -234,6 +239,60 @@ const QuestionList = ({ questions }: QuestionListProps) => {
                   </AlertDialog>
                 </div>
 
+                <QuestionControls
+                  questionId={question.id}
+                  questionText={question.question_text}
+                  onAnalysisComplete={() => queryClient.invalidateQueries({ queryKey: ["questions"] })}
+                />
+
+                {question.ai_importance_analysis && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                    <h4 className="font-semibold mb-2">Importance Analysis:</h4>
+                    <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                      {question.ai_importance_analysis}
+                    </div>
+                  </div>
+                )}
+
+                {question.ai_solution_steps && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold mb-2">AI Generated Solution:</h4>
+                    {editingSolution === question.id ? (
+                      <div className="space-y-4">
+                        <CustomRichTextEditor
+                          value={question.solution_text || question.ai_solution_steps}
+                          onChange={(value) => handleSolutionSave(question.id, value)}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleSolutionSave(question.id, question.solution_text || '')}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setEditingSolution(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="p-4 bg-gray-50 rounded-md cursor-pointer"
+                        onClick={() => setEditingSolution(question.id)}
+                      >
+                        <div
+                          className="text-sm text-gray-600"
+                          dangerouslySetInnerHTML={{
+                            __html: question.solution_text || question.ai_solution_steps
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {question.reference_text && (
                   <div>
                     <h4 className="font-semibold">Reference:</h4>
@@ -266,16 +325,6 @@ const QuestionList = ({ questions }: QuestionListProps) => {
                     ))}
                   </div>
                 </div>
-
-                {question.solution_text && (
-                  <div>
-                    <h4 className="font-semibold">Solution:</h4>
-                    <div
-                      className="text-gray-600"
-                      dangerouslySetInnerHTML={{ __html: question.solution_text }}
-                    />
-                  </div>
-                )}
               </Card>
             ))}
           </div>

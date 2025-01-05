@@ -100,8 +100,42 @@ export type Database = {
         }
         Relationships: []
       }
+      question_analysis: {
+        Row: {
+          analysis_type: string
+          content: string
+          created_at: string
+          id: string
+          question_id: string | null
+        }
+        Insert: {
+          analysis_type: string
+          content: string
+          created_at?: string
+          id?: string
+          question_id?: string | null
+        }
+        Update: {
+          analysis_type?: string
+          content?: string
+          created_at?: string
+          id?: string
+          question_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_analysis_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
+          ai_importance_analysis: string | null
+          ai_solution_steps: string | null
           created_at: string
           id: string
           image_url: string | null
@@ -113,6 +147,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_importance_analysis?: string | null
+          ai_solution_steps?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
@@ -124,6 +160,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_importance_analysis?: string | null
+          ai_solution_steps?: string | null
           created_at?: string
           id?: string
           image_url?: string | null

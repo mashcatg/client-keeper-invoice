@@ -1,0 +1,4 @@
+project_id = "wmftpgtnggfftiffrnce"
+
+[analyze-question]
+verify_jwt = true
