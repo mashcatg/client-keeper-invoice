@@ -44,7 +44,7 @@ serve(async (req) => {
         contents: [{
           parts: [
             {
-              text: `Analyze this image and create multiple choice questions. Return a JSON array with this exact structure:
+              text: `Analyze this image and create multiple choice question(s) that is/are exactly given in the image. Return a JSON array with this exact structure:
               [
                 {
                   "questionText": "string",
@@ -63,7 +63,9 @@ serve(async (req) => {
               2. Return only raw JSON, no markdown or code blocks
               3. Ensure exactly one option is marked as correct per question
               4. Create as many questions as you can find in the image
-              5. Return empty string for referenceText and solutionText if not applicable`
+              5. Return empty string for referenceText and solutionText if not applicable
+              6. Reference text can be inside []/(). Also, solutionText can be inside ব্যাখ্যা/Solution/Solve or any similar part
+              7. Create EXACT clones of question(s). Do not change anything`
             },
             {
               inline_data: {
